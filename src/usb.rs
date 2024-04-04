@@ -23,7 +23,7 @@ pub struct UsbRet<'d> {
     pub mouse_hid: HidReaderWriter<'d, Driver<'d, USB>, 1, 8>,
 }
 
-pub fn start_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> UsbRet {
+pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> UsbRet {
     // Create embassy-usb Config
     let mut config = Config::new(0xc0de, 0xcafe);
     config.manufacturer = Some("Yowkees/nazo6");

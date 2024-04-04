@@ -13,7 +13,7 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_usb::class::hid::State;
 use input::InputPeripherals;
-use ssd1306::Ssd1306Display;
+use oled::Oled;
 use usb::UsbOpts;
 use usb_handler::{UsbDeviceHandler, UsbRequestHandler};
 
@@ -21,7 +21,7 @@ mod double_reset;
 mod input;
 mod keycodes;
 mod keymap;
-mod ssd1306;
+mod oled;
 mod usb;
 mod usb_handler;
 
@@ -29,7 +29,7 @@ bind_interrupts!(struct Irqs {
     USBCTRL_IRQ => InterruptHandler<USB>;
 });
 
-type DisplayType = Mutex<ThreadModeRawMutex, Option<Ssd1306Display<'static>>>;
+type DisplayType = Mutex<ThreadModeRawMutex, Option<Oled<'static>>>;
 static DISPLAY: DisplayType = Mutex::new(None);
 
 #[embassy_executor::main]
@@ -39,20 +39,16 @@ async fn main(_spawner: Spawner) {
     unsafe { double_reset::check_double_tap_bootloader(500).await };
 
     // Display
-    let mut i2c_config = embassy_rp::i2c::Config::default();
-    i2c_config.frequency = 400_000;
-
-    let i2c = embassy_rp::i2c::I2c::new_blocking(p.I2C1, p.PIN_3, p.PIN_2, i2c_config);
-    let display = ssd1306::Ssd1306Display::new(i2c);
+    let display = oled::Oled::new(oled::DisplayPeripherals {
+        i2c: p.I2C1,
+        scl: p.PIN_3,
+        sda: p.PIN_2,
+    });
     *(DISPLAY.lock()).await = Some(display);
 
-    // USB Keyboard
-
-    // Create the driver, from the HAL.
-    let driver = Driver::new(p.USB, Irqs);
-
+    // Usb keyboard and mouse
     let opts = UsbOpts {
-        driver,
+        driver: Driver::new(p.USB, Irqs),
         config_descriptor: &mut [0; 256],
         bos_descriptor: &mut [0; 256],
         msos_descriptor: &mut [0; 256],
@@ -62,8 +58,7 @@ async fn main(_spawner: Spawner) {
         state_kb: &mut State::new(),
         state_mouse: &mut State::new(),
     };
-
-    let mut usb = usb::start_usb(opts);
+    let mut usb = usb::create_usb(opts);
 
     let usb_fut = async { usb.device.run().await };
     let input_fut = input::start(

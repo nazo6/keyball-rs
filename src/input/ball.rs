@@ -29,7 +29,9 @@ impl<'d> Ball<'d> {
             p.spi_dma_ch1,
             spi_config,
         );
-        let pmw3360 = pmw3360::Pmw3360::new(spi, Output::new(p.ncs, Level::High)).await;
+        let mut pmw3360 = pmw3360::Pmw3360::new(spi, Output::new(p.ncs, Level::High)).await;
+
+        pmw3360.set_cpi(600).await;
 
         Self { driver: pmw3360 }
     }

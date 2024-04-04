@@ -60,6 +60,6 @@ pub async fn start<'a>(
         )
         .await;
 
-        Timer::after_millis(10).await;
+        Timer::after_millis(50).await;
     }
 }

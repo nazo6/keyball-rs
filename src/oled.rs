@@ -1,6 +1,7 @@
+/// SSD1306 OLED module
 use embassy_rp::{
     i2c::{Blocking, I2c},
-    peripherals::I2C1,
+    peripherals::{I2C1, PIN_2, PIN_3},
 };
 use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyleBuilder},
@@ -10,7 +11,7 @@ use embedded_graphics::{
 };
 use ssd1306::{mode::BufferedGraphicsMode, prelude::*, I2CDisplayInterface, Ssd1306};
 
-pub struct Ssd1306Display<'a> {
+pub struct Oled<'a> {
     display: Ssd1306<
         I2CInterface<I2c<'a, I2C1, Blocking>>,
         DisplaySize128x32,
@@ -18,8 +19,19 @@ pub struct Ssd1306Display<'a> {
     >,
 }
 
-impl<'a> Ssd1306Display<'a> {
-    pub fn new(i2c: I2c<'a, I2C1, Blocking>) -> Self {
+pub struct DisplayPeripherals {
+    pub i2c: I2C1,
+    pub scl: PIN_3,
+    pub sda: PIN_2,
+}
+
+impl<'a> Oled<'a> {
+    pub fn new(p: DisplayPeripherals) -> Self {
+        let mut i2c_config = embassy_rp::i2c::Config::default();
+        i2c_config.frequency = 400_000;
+
+        let i2c = embassy_rp::i2c::I2c::new_blocking(p.i2c, p.scl, p.sda, i2c_config);
+
         let interface = I2CDisplayInterface::new(i2c);
         let mut display = Ssd1306::new(interface, DisplaySize128x32, DisplayRotation::Rotate0)
             .into_buffered_graphics_mode();
