@@ -439,29 +439,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embassy-rp2040"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "defmt",
- "defmt-rtt",
- "embassy-embedded-hal",
- "embassy-executor",
- "embassy-futures",
- "embassy-rp",
- "embassy-sync 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "embassy-time",
- "embassy-usb",
- "embedded-graphics",
- "fixed",
- "fixed-macro",
- "heapless",
- "ssd1306",
- "usbd-hid",
-]
-
-[[package]]
 name = "embassy-sync"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -876,6 +853,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
 dependencies = [
  "either",
+]
+
+[[package]]
+name = "keyball-embassy-rp2040"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "defmt",
+ "defmt-rtt",
+ "embassy-embedded-hal",
+ "embassy-executor",
+ "embassy-futures",
+ "embassy-rp",
+ "embassy-sync 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "embassy-time",
+ "embassy-usb",
+ "embedded-graphics",
+ "fixed",
+ "fixed-macro",
+ "heapless",
+ "ssd1306",
+ "usbd-hid",
 ]
 
 [[package]]

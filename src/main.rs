@@ -8,18 +8,23 @@ use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 use embassy_rp::bind_interrupts;
-use embassy_rp::gpio::{Input, Level, Output, Pin, Pull};
+use embassy_rp::gpio::{Flex, Level, Output, Pull};
 use embassy_rp::peripherals::USB;
+use embassy_rp::spi::Spi;
 use embassy_rp::usb::{Driver, InterruptHandler};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_time::Timer;
 use embassy_usb::class::hid::State;
+use keycodes::KC_NO;
 use ssd1306::Ssd1306Display;
 use usb_handler::{MyDeviceHandler, MyRequestHandler};
 use usbd_hid::descriptor::KeyboardReport;
 
 mod double_reset;
+mod keycodes;
+mod keymap;
+mod pmw3360;
 mod ssd1306;
 mod usb;
 mod usb_handler;
@@ -37,19 +42,39 @@ async fn main(_spawner: Spawner) {
 
     unsafe { double_reset::check_double_tap_bootloader(500).await };
 
+    // Display
     let mut i2c_config = embassy_rp::i2c::Config::default();
     i2c_config.frequency = 400_000;
 
     let i2c = embassy_rp::i2c::I2c::new_blocking(p.I2C1, p.PIN_3, p.PIN_2, i2c_config);
-    let mut display = ssd1306::Ssd1306Display::new(i2c);
+    let display = ssd1306::Ssd1306Display::new(i2c);
     *(DISPLAY.lock()).await = Some(display);
 
-    // DISPLAY
-    //     .lock()
-    //     .await
-    //     .as_mut()
-    //     .unwrap()
-    //     .draw_text("Hello from rust");
+    // Ball
+    let mut spi_config = embassy_rp::spi::Config::default();
+    spi_config.frequency = 2_000_000;
+    spi_config.polarity = embassy_rp::spi::Polarity::IdleHigh;
+    spi_config.phase = embassy_rp::spi::Phase::CaptureOnSecondTransition;
+    let spi = Spi::new(
+        p.SPI0, p.PIN_22, p.PIN_23, p.PIN_20, p.DMA_CH0, p.DMA_CH1, spi_config,
+    );
+    let mut pmw3360 = pmw3360::Pmw3360::new(spi, Output::new(p.PIN_21, Level::High)).await;
+    let pmw_fut = async move {
+        loop {
+            let data = pmw3360.burst_read().await.unwrap();
+            let mut str = heapless::String::<100>::new();
+            write!(
+                &mut str,
+                "dx: {}, dy: {},\nquality: {}",
+                data.dx, data.dy, data.surface_quality
+            )
+            .unwrap();
+            // DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
+            Timer::after_millis(50).await;
+        }
+    };
+
+    // USB Keyboard
 
     // Create the driver, from the HAL.
     let driver = Driver::new(p.USB, Irqs);
@@ -66,17 +91,17 @@ async fn main(_spawner: Spawner) {
     //     3: GP26
 
     let mut rows = [
-        p.PIN_4.degrade(),
-        p.PIN_5.degrade(),
-        p.PIN_6.degrade(),
-        p.PIN_7.degrade(),
-        p.PIN_8.degrade(),
+        Flex::new(p.PIN_4),
+        Flex::new(p.PIN_5),
+        Flex::new(p.PIN_6),
+        Flex::new(p.PIN_7),
+        Flex::new(p.PIN_8),
     ];
     let mut cols = [
-        p.PIN_29.degrade(),
-        p.PIN_28.degrade(),
-        p.PIN_27.degrade(),
-        p.PIN_26.degrade(),
+        Flex::new(p.PIN_26),
+        Flex::new(p.PIN_27),
+        Flex::new(p.PIN_28),
+        Flex::new(p.PIN_29),
     ];
 
     // Create embassy-usb DeviceBuilder using the driver and config.
@@ -109,47 +134,79 @@ async fn main(_spawner: Spawner) {
 
     let in_fut = async {
         loop {
-            let mut str = heapless::String::<100>::new();
+            let mut keys = heapless::Vec::<(usize, usize), 100>::new();
 
-            let rows_outputs = rows.iter_mut().map(|pin| Output::new(pin, Level::Low));
-            for (i, mut row) in rows_outputs.enumerate() {
-                row.set_high();
-                let cols_inputs = cols.iter_mut().map(|pin| Input::new(pin, Pull::Down));
-                for (j, col) in cols_inputs.enumerate() {
-                    if col.is_high() {
-                        write!(&mut str, "{},{} & ", i, j).unwrap();
-                    }
-                }
+            for row in rows.iter_mut() {
+                row.set_as_output();
                 row.set_low();
             }
+            for col in cols.iter_mut() {
+                col.set_as_input();
+                col.set_pull(Pull::Down);
+            }
 
-            let cols_outputs = cols.iter_mut().map(|pin| Output::new(pin, Level::Low));
-            for (j, mut col) in cols_outputs.enumerate() {
-                col.set_high();
-                let rows_inputs = rows.iter_mut().map(|pin| Input::new(pin, Pull::Down));
-                for (i, row) in rows_inputs.enumerate() {
-                    if row.is_high() {
-                        write!(&mut str, "{},{} & ", i, j).unwrap();
+            for (i, row) in rows.iter_mut().enumerate() {
+                row.set_high();
+                row.wait_for_high().await;
+
+                for (j, col) in cols.iter_mut().enumerate() {
+                    if col.is_high() {
+                        keys.push((i, j)).unwrap();
                     }
                 }
+
+                row.set_low();
+                row.wait_for_low().await;
+            }
+
+            for row in rows.iter_mut() {
+                row.set_as_input();
+                row.set_pull(Pull::Down);
+            }
+            for col in cols.iter_mut() {
+                col.set_as_output();
                 col.set_low();
             }
 
-            DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
+            for (j, col) in cols.iter_mut().enumerate() {
+                col.set_high();
+                col.wait_for_high().await;
 
-            Timer::after_millis(50).await;
+                for (i, row) in rows.iter_mut().enumerate() {
+                    if row.is_high() {
+                        keys.push((i, j + 3)).unwrap();
+                    }
+                }
 
-            // let report = KeyboardReport {
-            //     keycodes: [4, 0, 0, 0, 0, 0],
-            //     leds: 0,
-            //     modifier: 0,
-            //     reserved: 0,
-            // };
-            // // Send the report.
-            // match writer.write_serialize(&report).await {
-            //     Ok(()) => {}
-            //     Err(e) => warn!("Failed to send report: {:?}", e),
-            // };
+                col.set_low();
+                col.wait_for_low().await;
+            }
+
+            // DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
+
+            let mut keycodes = [0; 6];
+            let mut idx = 0;
+            for (row, col) in keys.iter() {
+                if idx >= keycodes.len() {
+                    break;
+                }
+                let kc = keymap::KEYMAP[*row][*col + 7];
+                if kc == KC_NO {
+                    continue;
+                }
+                keycodes[idx] = kc;
+                idx += 1;
+            }
+
+            let report = KeyboardReport {
+                keycodes,
+                leds: 0,
+                modifier: 0,
+                reserved: 0,
+            };
+            writer.write_serialize(&report).await;
+
+            Timer::after_millis(10).await;
         }
     };
 
@@ -161,11 +218,11 @@ async fn main(_spawner: Spawner) {
 
     // Run everything concurrently.
     // If we had made everything `'static` above instead, we could do this using separate tasks instead.
-    join(usb_fut, join(in_fut, out_fut)).await;
+    join(join(usb_fut, join(in_fut, out_fut)), pmw_fut).await;
 }
 
 #[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
+fn panic(_info: &PanicInfo) -> ! {
     DISPLAY
         .try_lock()
         .unwrap()
