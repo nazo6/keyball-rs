@@ -9,13 +9,15 @@ use super::BallPeripherals;
 
 mod pmw3360;
 
+// high-level interface to interact with the PMW3360 sensor
 pub struct Ball<'d> {
     driver: pmw3360::Pmw3360<'d, SPI0>,
 }
 
 impl<'d> Ball<'d> {
-    /// Initializes the ball sensor.
-    pub async fn init(p: BallPeripherals) -> Self {
+    /// Initializes the ball sensor and returns ball instance.
+    /// If no sensor is found, returns None.
+    pub async fn init(p: BallPeripherals) -> Option<Self> {
         let mut spi_config = embassy_rp::spi::Config::default();
         spi_config.frequency = 2_000_000;
         spi_config.polarity = embassy_rp::spi::Polarity::IdleHigh;
@@ -31,9 +33,13 @@ impl<'d> Ball<'d> {
         );
         let mut pmw3360 = pmw3360::Pmw3360::new(spi, Output::new(p.ncs, Level::High)).await;
 
+        if pmw3360.get_product_id().await != 0x42 {
+            return None;
+        }
+
         pmw3360.set_cpi(600).await;
 
-        Self { driver: pmw3360 }
+        Some(Self { driver: pmw3360 })
     }
 
     /// Reads the sensor data.

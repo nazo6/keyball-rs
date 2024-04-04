@@ -9,6 +9,7 @@ use crate::DISPLAY;
 
 mod ball;
 mod keyboard;
+mod split;
 
 pub struct InputPeripherals {
     pub keyboard: KeyboardPeripherals,
@@ -37,18 +38,24 @@ pub struct BallPeripherals {
     pub ncs: PIN_21,
 }
 
-pub async fn start<'a>(
-    peripherals: InputPeripherals,
-    hid_keyboard: HidReaderWriter<'a, Driver<'a, USB>, 1, 8>,
-    hid_mouse: HidReaderWriter<'a, Driver<'a, USB>, 1, 8>,
-) {
-    let (kb_reader, mut kb_writer) = hid_keyboard.split();
-    let (mouse_reader, mut mouse_writer) = hid_mouse.split();
+pub struct Hid<'a> {
+    pub keyboard: HidReaderWriter<'a, Driver<'a, USB>, 1, 8>,
+    pub mouse: HidReaderWriter<'a, Driver<'a, USB>, 1, 8>,
+}
+
+/// Starts the input task.
+/// If hid is Some, this is master side, and report will be sent to the USB device.
+/// If hid is None, this is slave side, and report will be sent to the master.
+pub async fn start<'a>(peripherals: InputPeripherals, hid: Option<Hid<'a>>) {
+    let hid = hid.unwrap();
+    let (kb_reader, mut kb_writer) = hid.keyboard.split();
+    let (mouse_reader, mut mouse_writer) = hid.mouse.split();
 
     let mut ball = ball::Ball::init(peripherals.ball).await;
     let mut keyboard = keyboard::Keyboard::new(peripherals.keyboard);
+
     loop {
-        let (ball, keyboard) = join(ball.read(), keyboard.read()).await;
+        let (ball, keyboard) = join(ball.as_mut().unwrap().read(), keyboard.read()).await;
 
         let mut str = heapless::String::<100>::new();
         write!(&mut str, "dx: {}, dy: {}", ball.x, ball.y).unwrap();
@@ -60,6 +67,6 @@ pub async fn start<'a>(
         )
         .await;
 
-        Timer::after_millis(50).await;
+        Timer::after_millis(10).await;
     }
 }

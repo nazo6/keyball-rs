@@ -12,7 +12,7 @@ use embassy_rp::usb::{Driver, InterruptHandler};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::mutex::Mutex;
 use embassy_usb::class::hid::State;
-use input::InputPeripherals;
+use input::{Hid, InputPeripherals};
 use oled::Oled;
 use usb::UsbOpts;
 use usb_handler::{UsbDeviceHandler, UsbRequestHandler};
@@ -84,8 +84,10 @@ async fn main(_spawner: Spawner) {
                 ncs: p.PIN_21,
             },
         },
-        usb.keyboard_hid,
-        usb.mouse_hid,
+        Some(Hid {
+            keyboard: usb.keyboard_hid,
+            mouse: usb.mouse_hid,
+        }),
     );
 
     join(usb_fut, input_fut).await;

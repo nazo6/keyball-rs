@@ -268,3 +268,10 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         Ok(())
     }
 }
+
+impl<'d, T: Instance> Pmw3360<'d, T> {
+    /// Get product id
+    pub async fn get_product_id(&mut self) -> u8 {
+        self.read(reg::PRODUCT_ID).await.unwrap()
+    }
+}
