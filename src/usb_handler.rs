@@ -6,9 +6,9 @@ use embassy_usb::class::hid::{ReportId, RequestHandler};
 use embassy_usb::control::OutResponse;
 use embassy_usb::Handler;
 
-pub struct MyRequestHandler {}
+pub struct UsbRequestHandler {}
 
-impl RequestHandler for MyRequestHandler {
+impl RequestHandler for UsbRequestHandler {
     fn get_report(&self, id: ReportId, _buf: &mut [u8]) -> Option<usize> {
         info!("Get report for {:?}", id);
         None
@@ -29,19 +29,19 @@ impl RequestHandler for MyRequestHandler {
     }
 }
 
-pub struct MyDeviceHandler {
+pub struct UsbDeviceHandler {
     configured: AtomicBool,
 }
 
-impl MyDeviceHandler {
+impl UsbDeviceHandler {
     pub fn new() -> Self {
-        MyDeviceHandler {
+        UsbDeviceHandler {
             configured: AtomicBool::new(false),
         }
     }
 }
 
-impl Handler for MyDeviceHandler {
+impl Handler for UsbDeviceHandler {
     fn enabled(&mut self, enabled: bool) {
         self.configured.store(false, Ordering::Relaxed);
         if enabled {

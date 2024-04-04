@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub const KC_NO: u8 = 0x0000;
 pub const KC_TRANSPARENT: u8 = 0x0001;
 pub const KC_A: u8 = 0x0004;
