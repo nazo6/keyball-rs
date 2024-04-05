@@ -14,6 +14,7 @@ mod split;
 pub struct InputPeripherals {
     pub keyboard: KeyboardPeripherals,
     pub ball: BallPeripherals,
+    pub split: SplitInputPeripherals,
 }
 
 pub struct KeyboardPeripherals {
@@ -38,6 +39,11 @@ pub struct BallPeripherals {
     pub ncs: PIN_21,
 }
 
+pub struct SplitInputPeripherals {
+    pub pio: PIO0,
+    pub data_pin: PIN_1,
+}
+
 pub struct Hid<'a> {
     pub keyboard: HidReaderWriter<'a, Driver<'a, USB>, 1, 8>,
     pub mouse: HidReaderWriter<'a, Driver<'a, USB>, 1, 8>,
@@ -54,19 +60,29 @@ pub async fn start<'a>(peripherals: InputPeripherals, hid: Option<Hid<'a>>) {
     let mut ball = ball::Ball::init(peripherals.ball).await;
     let mut keyboard = keyboard::Keyboard::new(peripherals.keyboard);
 
-    loop {
-        let (ball, keyboard) = join(ball.as_mut().unwrap().read(), keyboard.read()).await;
+    let poll_fut = async {
+        loop {
+            let (ball, keyboard) = join(ball.as_mut().unwrap().read(), keyboard.read()).await;
 
-        let mut str = heapless::String::<100>::new();
-        write!(&mut str, "dx: {}, dy: {}", ball.x, ball.y).unwrap();
-        DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
+            let mut str = heapless::String::<100>::new();
+            write!(&mut str, "dx: {}, dy: {}", ball.x, ball.y).unwrap();
+            // DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
 
-        join(
-            kb_writer.write_serialize(&keyboard),
-            mouse_writer.write_serialize(&ball),
-        )
-        .await;
+            join(
+                kb_writer.write_serialize(&keyboard),
+                mouse_writer.write_serialize(&ball),
+            )
+            .await;
 
-        Timer::after_millis(10).await;
-    }
+            Timer::after_millis(10).await;
+        }
+    };
+    join(
+        poll_fut,
+        split::start(SplitInputPeripherals {
+            pio: peripherals.split.pio,
+            data_pin: peripherals.split.data_pin,
+        }),
+    )
+    .await;
 }

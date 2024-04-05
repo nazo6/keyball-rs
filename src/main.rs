@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 
+use core::fmt::Write as _;
 use core::panic::PanicInfo;
 
 use defmt_rtt as _;
@@ -39,11 +40,14 @@ async fn main(_spawner: Spawner) {
     unsafe { double_reset::check_double_tap_bootloader(500).await };
 
     // Display
-    let display = oled::Oled::new(oled::DisplayPeripherals {
+    let mut display = oled::Oled::new(oled::DisplayPeripherals {
         i2c: p.I2C1,
         scl: p.PIN_3,
         sda: p.PIN_2,
     });
+
+    display.draw_text("Hello world!");
+
     *(DISPLAY.lock()).await = Some(display);
 
     // Usb keyboard and mouse
@@ -83,6 +87,10 @@ async fn main(_spawner: Spawner) {
                 spi_dma_ch1: p.DMA_CH1,
                 ncs: p.PIN_21,
             },
+            split: input::SplitInputPeripherals {
+                pio: p.PIO0,
+                data_pin: p.PIN_1,
+            },
         },
         Some(Hid {
             keyboard: usb.keyboard_hid,
@@ -94,13 +102,18 @@ async fn main(_spawner: Spawner) {
 }
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    let mut str = heapless::String::<1000>::new();
+
+    let loc = info.location().unwrap();
+    write!(&mut str, "P:\n{}\n{}\n", loc.file(), loc.line()).unwrap();
+
     DISPLAY
         .try_lock()
         .unwrap()
         .as_mut()
         .unwrap()
-        .draw_text("Panic!");
+        .draw_text(&str);
 
     loop {}
 }
