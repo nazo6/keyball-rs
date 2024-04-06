@@ -91,6 +91,11 @@ async fn main(_spawner: Spawner) {
                 pio: p.PIO0,
                 data_pin: p.PIN_1,
             },
+            led: input::LedPeripherals {
+                pio: p.PIO1,
+                led_pin: p.PIN_0,
+                dma: p.DMA_CH2,
+            },
         },
         Some(Hid {
             keyboard: usb.keyboard_hid,

@@ -1,4 +1,5 @@
 /// SSD1306 OLED module
+use core::fmt::Write;
 use embassy_rp::{
     i2c::{Blocking, I2c},
     peripherals::{I2C1, PIN_2, PIN_3},
@@ -52,6 +53,20 @@ impl<'a> Oled<'a> {
             .draw(&mut self.display)
             .unwrap();
 
+        self.display.flush().unwrap();
+    }
+
+    pub fn draw_number(&mut self, number: u32) {
+        self.display.clear_buffer();
+        let text_style = MonoTextStyleBuilder::new()
+            .font(&FONT_6X10)
+            .text_color(BinaryColor::On)
+            .build();
+        let mut str = heapless::String::<100>::new();
+        write!(str, "{}", number).unwrap();
+        Text::with_baseline(&str, Point::zero(), text_style, Baseline::Top)
+            .draw(&mut self.display)
+            .unwrap();
         self.display.flush().unwrap();
     }
 }

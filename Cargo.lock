@@ -895,6 +895,7 @@ dependencies = [
  "heapless",
  "pio",
  "pio-proc",
+ "smart-leds",
  "ssd1306",
  "usbd-hid",
 ]
@@ -1252,6 +1253,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adad44e29e4c806119491a7f06f03de4d1af22c3a680dd47f1e6e179439d1f56"
 
 [[package]]
+name = "rgb"
+version = "0.8.37"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05aaa8004b64fd573fc9d002f4e632d51ad4f026c2b5ba95fcb6c2f32c2c47d8"
+dependencies = [
+ "bytemuck",
+]
+
+[[package]]
 name = "rp-pac"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1337,6 +1347,24 @@ name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
+
+[[package]]
+name = "smart-leds"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66df34e571fa9993fa6f99131a374d58ca3d694b75f9baac93458fe0d6057bf0"
+dependencies = [
+ "smart-leds-trait",
+]
+
+[[package]]
+name = "smart-leds-trait"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bc64ee02bbbf469603016df746c0ed224f263280b6ebb49b7ebadbff375c572"
+dependencies = [
+ "rgb",
+]
 
 [[package]]
 name = "ssd1306"

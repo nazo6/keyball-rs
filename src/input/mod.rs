@@ -1,7 +1,12 @@
 use core::fmt::Write as _;
 
 use embassy_futures::join::join;
-use embassy_rp::{peripherals::*, usb::Driver};
+use embassy_rp::{
+    bind_interrupts,
+    peripherals::*,
+    pio::{InterruptHandler, Pio},
+    usb::Driver,
+};
 use embassy_time::Timer;
 use embassy_usb::class::hid::HidReaderWriter;
 
@@ -9,12 +14,14 @@ use crate::DISPLAY;
 
 mod ball;
 mod keyboard;
+mod led;
 mod split;
 
 pub struct InputPeripherals {
     pub keyboard: KeyboardPeripherals,
     pub ball: BallPeripherals,
     pub split: SplitInputPeripherals,
+    pub led: LedPeripherals,
 }
 
 pub struct KeyboardPeripherals {
@@ -42,6 +49,12 @@ pub struct BallPeripherals {
 pub struct SplitInputPeripherals {
     pub pio: PIO0,
     pub data_pin: PIN_1,
+}
+
+pub struct LedPeripherals {
+    pub pio: PIO1,
+    pub led_pin: PIN_0,
+    pub dma: DMA_CH2,
 }
 
 pub struct Hid<'a> {
@@ -95,10 +108,7 @@ pub async fn start(peripherals: InputPeripherals, hid: Option<Hid<'_>>) {
     };
     join(
         poll_fut,
-        split::start(SplitInputPeripherals {
-            pio: peripherals.split.pio,
-            data_pin: peripherals.split.data_pin,
-        }),
+        join(split::start(peripherals.split), led::start(peripherals.led)),
     )
     .await;
 }

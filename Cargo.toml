@@ -50,6 +50,7 @@ bincode = { version = "2.0.0-rc.3", default-features = false, features = [
 ] }
 pio-proc = "0.2.2"
 pio = "0.2.1"
+smart-leds = "0.4.0"
 
 [profile.release]
 lto = true
