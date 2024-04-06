@@ -90,6 +90,7 @@ async fn main(_spawner: Spawner) {
             split: input::SplitInputPeripherals {
                 pio: p.PIO0,
                 data_pin: p.PIN_1,
+                dma: p.DMA_CH3,
             },
             led: input::LedPeripherals {
                 pio: p.PIO1,

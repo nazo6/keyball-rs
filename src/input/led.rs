@@ -3,6 +3,10 @@ use embassy_rp::{
     peripherals::PIO1,
     pio::{InterruptHandler, Pio},
 };
+use embassy_sync::{
+    blocking_mutex::raw::ThreadModeRawMutex,
+    channel::{Channel, Receiver, Sender},
+};
 
 use crate::input::led::ws2812::Ws2812;
 
@@ -16,22 +20,13 @@ bind_interrupts!(struct Irqs {
     PIO1_IRQ_0 => InterruptHandler<PIO1>;
 });
 
-/// Input a value 0 to 255 to get a color value
-/// The colours are a transition r - g - b - back to r.
-fn wheel(mut wheel_pos: u8) -> RGB8 {
-    wheel_pos = 255 - wheel_pos;
-    if wheel_pos < 85 {
-        return (255 - wheel_pos * 3, 0, wheel_pos * 3).into();
-    }
-    if wheel_pos < 170 {
-        wheel_pos -= 85;
-        return (0, wheel_pos * 3, 255 - wheel_pos * 3).into();
-    }
-    wheel_pos -= 170;
-    (wheel_pos * 3, 255 - wheel_pos * 3, 0).into()
-}
+pub struct LedControl;
 
-pub async fn start(p: LedPeripherals) {
+pub type LedCtrlChannel = Channel<ThreadModeRawMutex, LedControl, 1>;
+pub type LedCtrlRx<'a> = Receiver<'a, ThreadModeRawMutex, LedControl, 1>;
+pub type LedCtrlTx<'a> = Sender<'a, ThreadModeRawMutex, LedControl, 1>;
+
+pub async fn start(p: LedPeripherals, led_ctrl_rx: LedCtrlRx<'_>) {
     let Pio {
         mut common, sm0, ..
     } = Pio::new(p.pio, Irqs);
