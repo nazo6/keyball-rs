@@ -52,7 +52,7 @@ pub struct Hid<'a> {
 /// Starts the input task.
 /// If hid is Some, this is master side, and report will be sent to the USB device.
 /// If hid is None, this is slave side, and report will be sent to the master.
-pub async fn start<'a>(peripherals: InputPeripherals, hid: Option<Hid<'a>>) {
+pub async fn start(peripherals: InputPeripherals, hid: Option<Hid<'_>>) {
     let hid = hid.unwrap();
     let (kb_reader, mut kb_writer) = hid.keyboard.split();
     let (mouse_reader, mut mouse_writer) = hid.mouse.split();
@@ -61,16 +61,32 @@ pub async fn start<'a>(peripherals: InputPeripherals, hid: Option<Hid<'a>>) {
     let mut keyboard = keyboard::Keyboard::new(peripherals.keyboard);
 
     let poll_fut = async {
+        let mut empty_kb_sent = false;
         loop {
             let (ball, keyboard) = join(ball.as_mut().unwrap().read(), keyboard.read()).await;
 
-            let mut str = heapless::String::<100>::new();
-            write!(&mut str, "dx: {}, dy: {}", ball.x, ball.y).unwrap();
-            // DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
-
             join(
-                kb_writer.write_serialize(&keyboard),
-                mouse_writer.write_serialize(&ball),
+                async {
+                    if let Some(kb_report) = keyboard {
+                        kb_writer.write_serialize(&kb_report).await;
+                        empty_kb_sent = false;
+                    } else if !empty_kb_sent {
+                        kb_writer
+                            .write_serialize(&usbd_hid::descriptor::KeyboardReport {
+                                keycodes: [0; 6],
+                                leds: 0,
+                                modifier: 0,
+                                reserved: 0,
+                            })
+                            .await;
+                        empty_kb_sent = true;
+                    }
+                },
+                async {
+                    if let Some(mouse_report) = ball {
+                        mouse_writer.write_serialize(&mouse_report).await;
+                    }
+                },
             )
             .await;
 

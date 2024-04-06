@@ -37,21 +37,25 @@ impl<'d> Ball<'d> {
             return None;
         }
 
-        pmw3360.set_cpi(600).await;
+        pmw3360.set_cpi(300).await;
 
         Some(Self { driver: pmw3360 })
     }
 
     /// Reads the sensor data.
-    pub async fn read(&mut self) -> MouseReport {
+    pub async fn read(&mut self) -> Option<MouseReport> {
         let data = self.driver.burst_read().await.unwrap();
 
-        MouseReport {
+        if data.dx == 0 && data.dy == 0 {
+            return None;
+        }
+
+        Some(MouseReport {
             buttons: 0,
-            x: data.dx as i8,
-            y: data.dy as i8,
+            x: data.dy as i8,
+            y: data.dx as i8,
             wheel: 0,
             pan: 0,
-        }
+        })
     }
 }

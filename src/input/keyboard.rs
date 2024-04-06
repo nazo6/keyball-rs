@@ -29,7 +29,9 @@ impl<'a> Keyboard<'a> {
         }
     }
 
-    pub async fn read(&mut self) -> KeyboardReport {
+    /// Read the keyboard matrix and return a KeyboardReport.
+    /// If no keys are pressed, returns None.
+    pub async fn read(&mut self) -> Option<KeyboardReport> {
         let keys = self.read_matrix().await;
 
         let mut keycodes = [0; 6];
@@ -46,12 +48,16 @@ impl<'a> Keyboard<'a> {
             idx += 1;
         }
 
-        KeyboardReport {
+        if idx == 0 {
+            return None;
+        }
+
+        Some(KeyboardReport {
             keycodes,
             leds: 0,
             modifier: 0,
             reserved: 0,
-        }
+        })
     }
 
     async fn read_matrix(&mut self) -> heapless::Vec<(usize, usize), 100> {
