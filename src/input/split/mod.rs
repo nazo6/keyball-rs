@@ -60,7 +60,7 @@ pub enum KeyChangeType {
     Released,
 }
 
-const DATA_SIZE: usize = 1;
+const DATA_SIZE: usize = 4;
 
 //
 // Send data to slave
@@ -81,9 +81,21 @@ pub async fn master_split_handle(p: SplitInputPeripherals, m2s_rx: M2sRx<'_>, s2
 
     loop {
         match select(comm.recv_data::<DATA_SIZE>(&mut buf), m2s_rx.receive()).await {
-            Either::First(_) => {}
+            Either::First(_) => {
+                let archived = unsafe { rkyv::archived_root::<SlaveToMaster>(&buf[..]) };
+                let data = archived.deserialize(&mut rkyv::Infallible).unwrap();
+
+                let mut str = heapless::String::<512>::new();
+                write!(str, "recv_mas:\n{:?}\n{:?}", buf, data).unwrap();
+                DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
+
+                s2m_tx.send(data).await;
+            }
             Either::Second(send_data) => {
-                //
+                let mut serializer = BufferSerializer::new(AlignedBytes([0u8; DATA_SIZE]));
+                serializer.serialize_value(&send_data).unwrap();
+                let data = serializer.into_inner();
+                comm.send_data::<DATA_SIZE>(data.as_slice()).await;
             }
         }
     }
@@ -97,21 +109,28 @@ pub async fn slave_split_handle(p: SplitInputPeripherals, m2s_tx: M2sTx<'_>, s2m
 
     let mut test_data = [0u8; DATA_SIZE];
 
-    let mut cnt = 0;
-
     loop {
-        match select(
-            comm.recv_data::<DATA_SIZE>(&mut buf),
-            embassy_time::Timer::after_millis(500),
-        )
-        .await
-        {
+        match select(comm.recv_data::<DATA_SIZE>(&mut buf), s2m_rx.receive()).await {
             Either::First(_) => {
-                cnt += 1;
+                let archived = unsafe { rkyv::archived_root::<MasterToSlave>(&buf[..]) };
+                let data = archived.deserialize(&mut rkyv::Infallible).unwrap();
+
+                let mut str = heapless::String::<512>::new();
+                write!(str, "recv_sl:\n{:?}", data).unwrap();
+                DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
+
+                m2s_tx.send(data).await;
             }
-            Either::Second(_) => {
-                comm.send_data::<DATA_SIZE>(&test_data).await;
-                test_data[0] += 1;
+            Either::Second(send_data) => {
+                let mut serializer = BufferSerializer::new(AlignedBytes([0u8; DATA_SIZE]));
+                serializer.serialize_value(&send_data).unwrap();
+                let data = serializer.into_inner();
+
+                comm.send_data::<DATA_SIZE>(data.as_slice()).await;
+
+                let mut str = heapless::String::<256>::new();
+                write!(str, "sent:\n{:?}\n{:?}", data.as_slice(), send_data).unwrap();
+                DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
             }
         }
     }

@@ -105,10 +105,6 @@ impl<'a> Communicate<'a> {
         while i < buf.len() {
             let data = self.rx_sm.rx().wait_pull().await;
 
-            let mut str = heapless::String::<512>::new();
-            write!(str, "recv: {:X}", data).unwrap();
-            DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
-
             buf[i] = data as u8;
             i += 1;
         }
@@ -124,11 +120,6 @@ impl<'a> Communicate<'a> {
             let data = buf[i] as u32;
             let data = data << 24;
             self.tx_sm.tx().wait_push(data).await;
-
-            let mut str = heapless::String::<256>::new();
-            write!(str, "sent: {:X}", data).unwrap();
-            DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
-
             i += 1;
         }
 
