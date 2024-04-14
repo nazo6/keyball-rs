@@ -85,13 +85,17 @@ pub async fn main_slave_task(
     DISPLAY.lock().await.as_mut().unwrap().draw_text("slave");
 
     loop {
-        // slave
-        let (kb_report, ball) = read_report(&mut keyboard, ball.as_mut()).await;
-        if let Some(kb_report) = kb_report {
-            if let Some(kc) = kb_report.keycodes.first() {
-                s2m_tx.send(split::SlaveToMaster::Message(*kc)).await;
+        let pressed = keyboard.read_matrix().await;
+        let mut pressed_keys = [None; 6];
+        for (i, (row, col)) in pressed.iter().enumerate() {
+            if i >= pressed_keys.len() {
+                break;
             }
+            pressed_keys[i] = Some((*row, *col));
         }
+        s2m_tx
+            .send(split::SlaveToMaster::Pressed { keys: pressed_keys })
+            .await;
 
         Timer::after_millis(10).await;
     }

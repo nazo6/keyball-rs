@@ -18,6 +18,7 @@ use oled::Oled;
 use usb::UsbOpts;
 use usb_handler::{UsbDeviceHandler, UsbRequestHandler};
 
+mod constant;
 mod double_reset;
 mod input;
 mod keycodes;

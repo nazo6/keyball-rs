@@ -10,6 +10,7 @@ use rkyv::ser::serializers::BufferSerializer;
 use rkyv::ser::Serializer;
 use rkyv::{AlignedBytes, Archive, Deserialize, Serialize};
 
+use crate::constant::SPLIT_CHANNEL_SIZE;
 use crate::DISPLAY;
 
 use self::bit_layer::Communicate;
@@ -22,7 +23,6 @@ bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
 });
 
-const SPLIT_CHANNEL_SIZE: usize = 10;
 pub type S2mChannel = Channel<ThreadModeRawMutex, SlaveToMaster, SPLIT_CHANNEL_SIZE>;
 pub type S2mRx<'a> = Receiver<'a, ThreadModeRawMutex, SlaveToMaster, SPLIT_CHANNEL_SIZE>;
 pub type S2mTx<'a> = Sender<'a, ThreadModeRawMutex, SlaveToMaster, SPLIT_CHANNEL_SIZE>;
@@ -41,15 +41,8 @@ pub enum MasterToSlave {
 #[derive(Archive, Deserialize, Serialize, Debug)]
 // #[archive(check_bytes)]
 pub enum SlaveToMaster {
-    KeyChange {
-        change_type: KeyChangeType,
-        row: u8,
-        col: u8,
-    },
-    Mouse {
-        dx: u8,
-        dy: u8,
-    },
+    Pressed { keys: [Option<(u8, u8)>; 6] },
+    Mouse { dx: u8, dy: u8 },
     Message(u8),
 }
 
@@ -60,7 +53,7 @@ pub enum KeyChangeType {
     Released,
 }
 
-const DATA_SIZE: usize = 4;
+const DATA_SIZE: usize = 20;
 
 //
 // Send data to slave
@@ -86,7 +79,7 @@ pub async fn master_split_handle(p: SplitInputPeripherals, m2s_rx: M2sRx<'_>, s2
                 let data = archived.deserialize(&mut rkyv::Infallible).unwrap();
 
                 let mut str = heapless::String::<512>::new();
-                write!(str, "recv_mas:\n{:?}\n{:?}", buf, data).unwrap();
+                write!(str, "s:{:?}\n{:?}\n{:?}", &buf[0..7], &buf[8..15], data).unwrap();
                 DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
 
                 s2m_tx.send(data).await;
@@ -107,11 +100,10 @@ pub async fn slave_split_handle(p: SplitInputPeripherals, m2s_tx: M2sTx<'_>, s2m
 
     let mut buf = [0u8; DATA_SIZE];
 
-    let mut test_data = [0u8; DATA_SIZE];
-
     loop {
         match select(comm.recv_data::<DATA_SIZE>(&mut buf), s2m_rx.receive()).await {
             Either::First(_) => {
+                // TODO: 入力値チェックをしたい(allocがないと無理？)
                 let archived = unsafe { rkyv::archived_root::<MasterToSlave>(&buf[..]) };
                 let data = archived.deserialize(&mut rkyv::Infallible).unwrap();
 
@@ -129,7 +121,14 @@ pub async fn slave_split_handle(p: SplitInputPeripherals, m2s_tx: M2sTx<'_>, s2m
                 comm.send_data::<DATA_SIZE>(data.as_slice()).await;
 
                 let mut str = heapless::String::<256>::new();
-                write!(str, "sent:\n{:?}\n{:?}", data.as_slice(), send_data).unwrap();
+                write!(
+                    str,
+                    "s:{:?}\n{:?}\n{:?}",
+                    &data[0..7],
+                    &data[8..15],
+                    send_data
+                )
+                .unwrap();
                 DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
             }
         }

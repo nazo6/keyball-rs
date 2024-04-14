@@ -1,0 +1,9 @@
+use crate::constant::{COLS, ROWS};
+
+pub struct KeyboardState([[bool; COLS]; ROWS]);
+
+impl KeyboardState {
+    pub fn new() -> Self {
+        Self([[false; COLS]; ROWS])
+    }
+}

@@ -1,18 +1,9 @@
-use core::fmt::Write;
-
 use embassy_rp::peripherals::{PIN_1, PIO0};
 use embassy_rp::pio::{Common, Config, Pin, Pio, ShiftDirection, StateMachine};
 use embassy_time::Timer;
 use fixed::traits::ToFixed;
 
-use crate::DISPLAY;
-
-// const BITRATE: f64 = 115200.0;
-//                                               ↓ 一つのPIOループで138クロック
-//                                                       ↓ 1つのPIO命令で32ビット送信
-// const DIVIDER: f64 = 125_000_000.0 / (BITRATE * (138.0 / 32.0));
-
-const DIVIDER: f64 = 128.0;
+use crate::constant::SPLIT_CLK_DIVIDER;
 
 fn rx_init<'a>(
     common: &mut Common<'a, PIO0>,
@@ -39,7 +30,7 @@ fn rx_init<'a>(
 
     cfg.fifo_join = embassy_rp::pio::FifoJoin::RxOnly;
 
-    cfg.clock_divider = DIVIDER.to_fixed();
+    cfg.clock_divider = SPLIT_CLK_DIVIDER.to_fixed();
     sm.set_config(&cfg);
     sm.set_enable(true);
 }
@@ -73,7 +64,7 @@ fn tx_init<'a>(
 
     cfg.fifo_join = embassy_rp::pio::FifoJoin::TxOnly;
 
-    cfg.clock_divider = DIVIDER.to_fixed();
+    cfg.clock_divider = SPLIT_CLK_DIVIDER.to_fixed();
     sm.set_config(&cfg);
     sm.set_enable(false);
 }
@@ -113,7 +104,7 @@ impl<'a> Communicate<'a> {
     pub async fn send_data<const N: usize>(&mut self, buf: &[u8]) {
         let mut i = 0;
         self.rx_sm.set_enable(false);
-        Timer::after_millis(10).await;
+        Timer::after_millis(2).await;
         self.tx_sm.restart();
         self.tx_sm.set_enable(true);
         while i < buf.len() {
@@ -123,7 +114,7 @@ impl<'a> Communicate<'a> {
             i += 1;
         }
 
-        Timer::after_millis(5).await;
+        Timer::after_millis(2).await;
         self.tx_sm.set_enable(false);
         self.rx_sm.restart();
         self.rx_sm.set_enable(true);

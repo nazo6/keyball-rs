@@ -40,7 +40,7 @@ impl<'a> Keyboard<'a> {
             if idx >= keycodes.len() {
                 break;
             }
-            let kc = keymap::KEYMAP[*row][*col + 7];
+            let kc = keymap::KEYMAP[*row as usize][*col as usize + 7];
             if kc == KC_NO {
                 continue;
             }
@@ -60,8 +60,8 @@ impl<'a> Keyboard<'a> {
         })
     }
 
-    async fn read_matrix(&mut self) -> heapless::Vec<(usize, usize), 100> {
-        let mut keys = heapless::Vec::<(usize, usize), 100>::new();
+    pub async fn read_matrix(&mut self) -> heapless::Vec<(u8, u8), 100> {
+        let mut keys = heapless::Vec::<(u8, u8), 100>::new();
 
         for row in self.rows.iter_mut() {
             row.set_as_output();
@@ -78,7 +78,7 @@ impl<'a> Keyboard<'a> {
 
             for (j, col) in self.cols.iter_mut().enumerate() {
                 if col.is_high() {
-                    keys.push((i, j)).unwrap();
+                    keys.push((i as u8, j as u8)).unwrap();
                 }
             }
 
@@ -101,7 +101,7 @@ impl<'a> Keyboard<'a> {
 
             for (i, row) in self.rows.iter_mut().enumerate() {
                 if row.is_high() {
-                    keys.push((i, j + 3)).unwrap();
+                    keys.push((i as u8, j as u8 + 3)).unwrap();
                 }
             }
 
