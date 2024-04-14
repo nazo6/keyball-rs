@@ -20,14 +20,14 @@ fn rx_init<'a>(
     data_pin: &Pin<'a, PIO0>,
 ) {
     let prg = pio_proc::pio_asm!(
-        "set pins 1",
         "set pindirs 0",
         ".wrap_target",
         "wait 0 pin 0",
         "set x 7 [8]",
         "bitloop:",
-        "in pins 1 [7]",
+        "in pins 1 [6]",
         "jmp x-- bitloop",
+        "push",
         ".wrap"
     );
     let mut cfg = Config::default();
@@ -35,10 +35,7 @@ fn rx_init<'a>(
 
     cfg.set_in_pins(&[data_pin]);
 
-    // auto push
-    cfg.shift_in.auto_fill = true;
     cfg.shift_in.direction = ShiftDirection::Left;
-    cfg.shift_in.threshold = 8;
 
     cfg.fifo_join = embassy_rp::pio::FifoJoin::RxOnly;
 
@@ -53,14 +50,14 @@ fn tx_init<'a>(
     data_pin: &Pin<'a, PIO0>,
 ) {
     let prg = pio_proc::pio_asm!(
-        "set pins 0",
         "set pindirs 0",
         ".wrap_target",
-        "set x 7",
+        "pull",
+        "set x 7 [2]",
         "set pins 0",
         "set pindirs 1 [7]",
         "bitloop:",
-        "out pindirs 1 [6]",
+        "out pins 1 [6]",
         "jmp x-- bitloop",
         "set pins 1",
         "set pindirs 0 [2]",
@@ -72,10 +69,7 @@ fn tx_init<'a>(
     cfg.set_out_pins(&[data_pin]);
     cfg.set_set_pins(&[data_pin]);
 
-    // auto pull
-    cfg.shift_out.auto_fill = true;
     cfg.shift_out.direction = ShiftDirection::Left;
-    cfg.shift_out.threshold = 8;
 
     cfg.fifo_join = embassy_rp::pio::FifoJoin::TxOnly;
 
@@ -110,6 +104,11 @@ impl<'a> Communicate<'a> {
         let mut i = 0;
         while i < buf.len() {
             let data = self.rx_sm.rx().wait_pull().await;
+
+            let mut str = heapless::String::<512>::new();
+            write!(str, "recv: {:X}", data).unwrap();
+            DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
+
             buf[i] = data as u8;
             i += 1;
         }
@@ -125,8 +124,14 @@ impl<'a> Communicate<'a> {
             let data = buf[i] as u32;
             let data = data << 24;
             self.tx_sm.tx().wait_push(data).await;
+
+            let mut str = heapless::String::<256>::new();
+            write!(str, "sent: {:X}", data).unwrap();
+            DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
+
             i += 1;
         }
+
         Timer::after_millis(5).await;
         self.tx_sm.set_enable(false);
         self.rx_sm.restart();
