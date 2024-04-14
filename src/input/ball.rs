@@ -37,7 +37,7 @@ impl<'d> Ball<'d> {
             return None;
         }
 
-        pmw3360.set_cpi(300).await;
+        let _ = pmw3360.set_cpi(300).await;
 
         Some(Self { driver: pmw3360 })
     }

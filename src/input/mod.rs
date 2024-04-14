@@ -1,13 +1,12 @@
 use embassy_futures::join::join;
 use embassy_rp::{peripherals::*, usb::Driver};
 use embassy_sync::channel::Channel;
-use embassy_time::Timer;
 use embassy_usb::class::hid::HidReaderWriter;
-use usbd_hid::descriptor::{KeyboardReport, MouseReport};
 
 mod ball;
 mod keyboard;
 mod led;
+mod main_task;
 mod split;
 
 pub struct InputPeripherals {
@@ -56,34 +55,20 @@ pub struct Hid<'a> {
     pub mouse: HidReaderWriter<'a, Driver<'a, USB>, 1, 8>,
 }
 
-async fn read_report(
-    keyboard: &mut keyboard::Keyboard<'_>,
-    ball: Option<&mut ball::Ball<'_>>,
-) -> (Option<KeyboardReport>, Option<MouseReport>) {
-    if let Some(ball) = ball {
-        let (ball, keyboard) = join(ball.read(), keyboard.read()).await;
-        (keyboard, ball)
-    } else {
-        let keyboard = keyboard.read().await;
-        (keyboard, None)
-    }
-}
-
 /// Starts the input task.
 /// If hid is Some, this is master side, and report will be sent to the USB device.
 /// If hid is None, this is slave side, and report will be sent to the master.
 pub async fn start(peripherals: InputPeripherals, hid: Option<Hid<'_>>) {
-    let hid = if let Some(hid) = hid {
-        // TODO: handle keyboard reader
-        let (kb_reader, kb_writer) = hid.keyboard.split();
-        let (_mouse_reader, mouse_writer) = hid.mouse.split();
-        Some((kb_writer, mouse_writer))
-    } else {
-        None
-    };
+    // let hid = if let Some(hid) = hid {
+    //     // TODO: handle keyboard reader
+    //     let (kb_reader, kb_writer) = hid.keyboard.split();
+    //     let (_mouse_reader, mouse_writer) = hid.mouse.split();
+    //     Some((kb_writer, mouse_writer))
+    // } else {
+    //     None
+    // };
 
-    let mut ball = ball::Ball::init(peripherals.ball).await;
-    let mut keyboard = keyboard::Keyboard::new(peripherals.keyboard);
+    let hid = hid.unwrap();
 
     let s2m_chan: split::S2mChannel = Channel::new();
     let s2m_tx = s2m_chan.sender();
@@ -97,67 +82,24 @@ pub async fn start(peripherals: InputPeripherals, hid: Option<Hid<'_>>) {
     let led_ctrl_rx = led_ctrl_chan.receiver();
     let led_ctrl_tx = led_ctrl_chan.sender();
 
+    let ball = ball::Ball::init(peripherals.ball).await;
+    let keyboard = keyboard::Keyboard::new(peripherals.keyboard);
+
     join(
         async {
-            match hid {
-                Some((mut kb_writer, mut mouse_writer)) => {
+            // TODO: masterとslaveをちゃんと判定する
+            match &ball {
+                Some(_) => {
                     join(
                         split::master_split_handle(peripherals.split, m2s_rx, s2m_tx),
-                        async {
-                            let mut empty_kb_sent = false;
-                            loop {
-                                // master
-                                let (kb_report, ball) =
-                                    read_report(&mut keyboard, ball.as_mut()).await;
-
-                                join(
-                                    async {
-                                        if let Some(kb_report) = kb_report {
-                                            kb_writer.write_serialize(&kb_report).await;
-                                            empty_kb_sent = false;
-                                        } else if !empty_kb_sent {
-                                            kb_writer
-                                                .write_serialize(
-                                                    &usbd_hid::descriptor::KeyboardReport {
-                                                        keycodes: [0; 6],
-                                                        leds: 0,
-                                                        modifier: 0,
-                                                        reserved: 0,
-                                                    },
-                                                )
-                                                .await;
-                                            empty_kb_sent = true;
-                                        }
-                                    },
-                                    async {
-                                        if let Some(mouse_report) = ball {
-                                            mouse_writer.write_serialize(&mouse_report).await;
-                                        }
-                                    },
-                                )
-                                .await;
-
-                                while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
-                                    //
-                                }
-
-                                Timer::after_millis(10).await;
-                            }
-                        },
+                        main_task::main_master_task(hid, ball, keyboard, s2m_rx, m2s_tx),
                     )
                     .await
                 }
                 None => {
                     join(
                         split::slave_split_handle(peripherals.split, m2s_tx, s2m_rx),
-                        async {
-                            loop {
-                                // slave
-                                let (kb_report, ball) =
-                                    read_report(&mut keyboard, ball.as_mut()).await;
-                                if let Some(kb_report) = kb_report {}
-                            }
-                        },
+                        main_task::main_slave_task(ball, keyboard, m2s_rx, s2m_tx),
                     )
                     .await
                 }
