@@ -1,23 +1,21 @@
 use core::fmt::Write;
 
+use crate::constant::SPLIT_CHANNEL_SIZE;
+use crate::DISPLAY;
 use embassy_futures::select::{select, Either};
 use embassy_rp::bind_interrupts;
 use embassy_rp::peripherals::PIO0;
 use embassy_rp::pio::{InterruptHandler, Pio};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
-use rkyv::ser::serializers::BufferSerializer;
-use rkyv::ser::Serializer;
-use rkyv::{AlignedBytes, Archive, Deserialize, Serialize};
-
-use crate::constant::SPLIT_CHANNEL_SIZE;
-use crate::DISPLAY;
 
 use self::communicate::Communicate;
 
 use super::SplitInputPeripherals;
 
 mod communicate;
+mod data;
+pub use data::*;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
@@ -30,30 +28,6 @@ pub type S2mTx<'a> = Sender<'a, ThreadModeRawMutex, SlaveToMaster, SPLIT_CHANNEL
 pub type M2sChannel = Channel<ThreadModeRawMutex, MasterToSlave, SPLIT_CHANNEL_SIZE>;
 pub type M2sRx<'a> = Receiver<'a, ThreadModeRawMutex, MasterToSlave, SPLIT_CHANNEL_SIZE>;
 pub type M2sTx<'a> = Sender<'a, ThreadModeRawMutex, MasterToSlave, SPLIT_CHANNEL_SIZE>;
-
-#[derive(Archive, Deserialize, Serialize, Debug)]
-// #[archive(check_bytes)]
-pub enum MasterToSlave {
-    Led,
-    Message(u8),
-}
-
-#[derive(Archive, Deserialize, Serialize, Debug)]
-// #[archive(check_bytes)]
-pub enum SlaveToMaster {
-    Pressed { keys: [Option<(u8, u8)>; 6] },
-    Mouse { dx: u8, dy: u8 },
-    Message(u8),
-}
-
-#[derive(Archive, Deserialize, Serialize, Debug)]
-// #[archive(check_bytes)]
-pub enum KeyChangeType {
-    Pressed,
-    Released,
-}
-
-const MAX_DATA_SIZE: usize = 20;
 
 //
 // Send data to slave
@@ -71,24 +45,27 @@ pub async fn master_split_handle(p: SplitInputPeripherals, m2s_rx: M2sRx<'_>, s2
     let mut comm = Communicate::new(pio, p.data_pin).await;
 
     let mut buf = [0u8; MAX_DATA_SIZE];
-
     loop {
         match select(comm.recv_data::<MAX_DATA_SIZE>(&mut buf), m2s_rx.receive()).await {
             Either::First(_) => {
-                let archived = unsafe { rkyv::archived_root::<SlaveToMaster>(&buf[..]) };
-                let data = archived.deserialize(&mut rkyv::Infallible).unwrap();
+                let data = SlaveToMaster::from_bytes(&buf);
 
                 let mut str = heapless::String::<512>::new();
-                write!(str, "r:{:?}\n{:?}\n{:?}", &buf[7..13], &buf[14..19], &data).unwrap();
+                write!(
+                    str,
+                    "r:{:?}\n{:?}\n{:?}",
+                    &buf[0..6],
+                    &buf[7..13],
+                    &buf[14..19]
+                )
+                .unwrap();
                 DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
 
                 s2m_tx.send(data).await;
             }
             Either::Second(send_data) => {
-                let mut serializer = BufferSerializer::new(AlignedBytes([0u8; MAX_DATA_SIZE]));
-                serializer.serialize_value(&send_data).unwrap();
-                let data = serializer.into_inner();
-                comm.send_data::<MAX_DATA_SIZE>(data.as_slice()).await;
+                comm.send_data::<MAX_DATA_SIZE>(send_data.to_bytes().as_slice())
+                    .await;
             }
         }
     }
@@ -104,8 +81,7 @@ pub async fn slave_split_handle(p: SplitInputPeripherals, m2s_tx: M2sTx<'_>, s2m
         match select(comm.recv_data::<MAX_DATA_SIZE>(&mut buf), s2m_rx.receive()).await {
             Either::First(_) => {
                 // TODO: 入力値チェックをしたい(allocがないと無理？)
-                let archived = unsafe { rkyv::archived_root::<MasterToSlave>(&buf[..]) };
-                let data = archived.deserialize(&mut rkyv::Infallible).unwrap();
+                let data = MasterToSlave::from_bytes(&buf);
 
                 let mut str = heapless::String::<512>::new();
                 write!(str, "recv_sl:\n{:?}", data).unwrap();
@@ -114,9 +90,7 @@ pub async fn slave_split_handle(p: SplitInputPeripherals, m2s_tx: M2sTx<'_>, s2m
                 m2s_tx.send(data).await;
             }
             Either::Second(send_data) => {
-                let mut serializer = BufferSerializer::new(AlignedBytes([0u8; MAX_DATA_SIZE]));
-                serializer.serialize_value(&send_data).unwrap();
-                let data = serializer.into_inner();
+                let data = send_data.to_bytes();
 
                 comm.send_data::<MAX_DATA_SIZE>(data.as_slice()).await;
 

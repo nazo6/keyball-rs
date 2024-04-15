@@ -45,6 +45,9 @@ impl<'a> Keyboard<'a> {
                 break;
             }
             if let Some((row, col)) = key {
+                if row >= &5 || col >= &4 {
+                    continue;
+                }
                 let kc = keymap::KEYMAP[*row as usize][*col as usize];
                 if kc == KC_NO {
                     continue;

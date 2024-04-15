@@ -92,6 +92,7 @@ pub async fn main_slave_task(
 ) {
     DISPLAY.lock().await.as_mut().unwrap().draw_text("slave");
 
+    let mut pressed_keys_prev = [None; 6];
     loop {
         let pressed = keyboard.read_matrix().await;
         let mut pressed_keys = [None; 6];
@@ -101,9 +102,12 @@ pub async fn main_slave_task(
             }
             pressed_keys[i] = Some((*row, *col));
         }
-        s2m_tx
-            .send(split::SlaveToMaster::Pressed { keys: pressed_keys })
-            .await;
+        if pressed_keys != pressed_keys_prev {
+            s2m_tx
+                .send(split::SlaveToMaster::Pressed { keys: pressed_keys })
+                .await;
+            pressed_keys_prev = pressed_keys;
+        }
 
         Timer::after_millis(10).await;
     }
