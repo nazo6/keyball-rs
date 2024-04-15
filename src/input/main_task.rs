@@ -16,12 +16,13 @@ use super::{
 async fn read_report(
     keyboard: &mut keyboard::Keyboard<'_>,
     ball: Option<&mut ball::Ball<'_>>,
+    other_side_keys: &[Option<(u8, u8)>; 6],
 ) -> (Option<KeyboardReport>, Option<MouseReport>) {
     if let Some(ball) = ball {
-        let (ball, keyboard) = join(ball.read(), keyboard.read()).await;
+        let (ball, keyboard) = join(ball.read(), keyboard.read(other_side_keys)).await;
         (keyboard, ball)
     } else {
-        let keyboard = keyboard.read().await;
+        let keyboard = keyboard.read(other_side_keys).await;
         (keyboard, None)
     }
 }
@@ -39,9 +40,20 @@ pub async fn main_master_task(
     DISPLAY.lock().await.as_mut().unwrap().draw_text("master");
 
     let mut empty_kb_sent = false;
+    let mut other_side_keys = [None; 6];
     loop {
+        while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
+            match cmd_from_slave {
+                split::SlaveToMaster::Pressed { keys } => {
+                    other_side_keys = keys;
+                }
+                split::SlaveToMaster::Message(_) => {}
+                _ => {}
+            }
+        }
+
         // master
-        let (kb_report, ball) = read_report(&mut keyboard, ball.as_mut()).await;
+        let (kb_report, ball) = read_report(&mut keyboard, ball.as_mut(), &other_side_keys).await;
 
         join(
             async {
@@ -67,10 +79,6 @@ pub async fn main_master_task(
             },
         )
         .await;
-
-        while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
-            //
-        }
 
         Timer::after_millis(10).await;
     }

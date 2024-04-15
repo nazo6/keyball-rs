@@ -1,9 +1,17 @@
+use embassy_futures::yield_now;
 use embassy_rp::peripherals::{PIN_1, PIO0};
 use embassy_rp::pio::{Common, Config, Pin, Pio, ShiftDirection, StateMachine};
 use embassy_time::Timer;
 use fixed::traits::ToFixed;
 
 use crate::constant::SPLIT_CLK_DIVIDER;
+
+// Data structure
+//
+// 0 bit: start
+// 1-8 bit: data
+// 9 bit: start check
+// 10bit: end check
 
 fn rx_init<'a>(
     common: &mut Common<'a, PIO0>,
@@ -14,7 +22,7 @@ fn rx_init<'a>(
         "set pindirs 0",
         ".wrap_target",
         "wait 0 pin 0",
-        "set x 7 [8]",
+        "set x 9 [8]",
         "bitloop:",
         "in pins 1 [6]",
         "jmp x-- bitloop",
@@ -44,7 +52,7 @@ fn tx_init<'a>(
         "set pindirs 0",
         ".wrap_target",
         "pull",
-        "set x 7 [2]",
+        "set x 9 [2]",
         "set pins 0",
         "set pindirs 1 [7]",
         "bitloop:",
@@ -72,10 +80,11 @@ fn tx_init<'a>(
 pub struct Communicate<'a> {
     rx_sm: StateMachine<'a, PIO0, 0>,
     tx_sm: StateMachine<'a, PIO0, 1>,
+    pin: Pin<'a, PIO0>,
 }
 
 impl<'a> Communicate<'a> {
-    pub fn new<'b: 'a>(pio: Pio<'b, PIO0>, data_pin: PIN_1) -> Communicate<'a> {
+    pub async fn new<'b: 'a>(pio: Pio<'b, PIO0>, data_pin: PIN_1) -> Communicate<'a> {
         let mut common = pio.common;
         let mut sm0 = pio.sm0;
         let mut sm1 = pio.sm1;
@@ -86,37 +95,80 @@ impl<'a> Communicate<'a> {
         rx_init(&mut common, &mut sm0, &out_pin);
         tx_init(&mut common, &mut sm1, &out_pin);
 
-        Self {
+        let mut s = Self {
             rx_sm: sm0,
             tx_sm: sm1,
+            pin: out_pin,
+        };
+
+        s.enter_rx().await;
+
+        s
+    }
+
+    async fn enter_rx(&mut self) {
+        while !self.tx_sm.tx().empty() {
+            yield_now().await;
         }
+
+        Timer::after_micros(100).await;
+
+        self.tx_sm.set_enable(false);
+        self.pin.set_drive_strength(embassy_rp::gpio::Drive::_2mA);
+        self.rx_sm.restart();
+        self.rx_sm.set_enable(true);
+    }
+
+    async fn enter_tx(&mut self) {
+        self.rx_sm.set_enable(false);
+        self.pin.set_drive_strength(embassy_rp::gpio::Drive::_12mA);
+        self.tx_sm.restart();
+        self.tx_sm.set_enable(true);
+    }
+
+    pub async fn recv_byte(&mut self) -> (bool, bool, u8) {
+        let mut data = self.rx_sm.rx().wait_pull().await;
+        let end_bit = data & 1;
+        data >>= 1;
+        let start_bit = data & 1;
+        data >>= 1;
+        (start_bit == 1, end_bit == 1, data as u8)
     }
     pub async fn recv_data<const N: usize>(&mut self, buf: &mut [u8; N]) {
         let mut i = 0;
-        while i < buf.len() {
-            let data = self.rx_sm.rx().wait_pull().await;
+        while i < N {
+            let (start, end, data) = self.recv_byte().await;
 
-            buf[i] = data as u8;
+            if i == 0 && !start {
+                continue;
+            }
+
+            buf[i] = data;
+
+            if end {
+                break;
+            }
+
             i += 1;
         }
     }
 
     pub async fn send_data<const N: usize>(&mut self, buf: &[u8]) {
-        let mut i = 0;
-        self.rx_sm.set_enable(false);
-        Timer::after_millis(2).await;
-        self.tx_sm.restart();
-        self.tx_sm.set_enable(true);
-        while i < buf.len() {
-            let data = buf[i] as u32;
-            let data = data << 24;
+        self.enter_tx().await;
+
+        for (i, data) in buf.iter().enumerate() {
+            let mut data = (*data as u32) << 24;
+
+            if i == 0 {
+                data |= 1 << 23;
+            }
+            if i == buf.len() - 1 {
+                data |= 1 << 22;
+            }
+
             self.tx_sm.tx().wait_push(data).await;
-            i += 1;
         }
 
-        Timer::after_millis(2).await;
-        self.tx_sm.set_enable(false);
-        self.rx_sm.restart();
-        self.rx_sm.set_enable(true);
+        self.enter_rx().await;
     }
 }

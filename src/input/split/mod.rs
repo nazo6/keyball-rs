@@ -13,11 +13,11 @@ use rkyv::{AlignedBytes, Archive, Deserialize, Serialize};
 use crate::constant::SPLIT_CHANNEL_SIZE;
 use crate::DISPLAY;
 
-use self::bit_layer::Communicate;
+use self::communicate::Communicate;
 
 use super::SplitInputPeripherals;
 
-mod bit_layer;
+mod communicate;
 
 bind_interrupts!(struct Irqs {
     PIO0_IRQ_0 => InterruptHandler<PIO0>;
@@ -53,7 +53,7 @@ pub enum KeyChangeType {
     Released,
 }
 
-const DATA_SIZE: usize = 20;
+const MAX_DATA_SIZE: usize = 20;
 
 //
 // Send data to slave
@@ -68,27 +68,27 @@ const DATA_SIZE: usize = 20;
 /// - receive data from s2m channel and send it to slave.
 pub async fn master_split_handle(p: SplitInputPeripherals, m2s_rx: M2sRx<'_>, s2m_tx: S2mTx<'_>) {
     let pio = Pio::new(p.pio, Irqs);
-    let mut comm = Communicate::new(pio, p.data_pin);
+    let mut comm = Communicate::new(pio, p.data_pin).await;
 
-    let mut buf = [0u8; DATA_SIZE];
+    let mut buf = [0u8; MAX_DATA_SIZE];
 
     loop {
-        match select(comm.recv_data::<DATA_SIZE>(&mut buf), m2s_rx.receive()).await {
+        match select(comm.recv_data::<MAX_DATA_SIZE>(&mut buf), m2s_rx.receive()).await {
             Either::First(_) => {
                 let archived = unsafe { rkyv::archived_root::<SlaveToMaster>(&buf[..]) };
                 let data = archived.deserialize(&mut rkyv::Infallible).unwrap();
 
                 let mut str = heapless::String::<512>::new();
-                write!(str, "s:{:?}\n{:?}\n{:?}", &buf[0..7], &buf[8..15], data).unwrap();
+                write!(str, "r:{:?}\n{:?}\n{:?}", &buf[7..13], &buf[14..19], &data).unwrap();
                 DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
 
                 s2m_tx.send(data).await;
             }
             Either::Second(send_data) => {
-                let mut serializer = BufferSerializer::new(AlignedBytes([0u8; DATA_SIZE]));
+                let mut serializer = BufferSerializer::new(AlignedBytes([0u8; MAX_DATA_SIZE]));
                 serializer.serialize_value(&send_data).unwrap();
                 let data = serializer.into_inner();
-                comm.send_data::<DATA_SIZE>(data.as_slice()).await;
+                comm.send_data::<MAX_DATA_SIZE>(data.as_slice()).await;
             }
         }
     }
@@ -96,12 +96,12 @@ pub async fn master_split_handle(p: SplitInputPeripherals, m2s_rx: M2sRx<'_>, s2
 
 pub async fn slave_split_handle(p: SplitInputPeripherals, m2s_tx: M2sTx<'_>, s2m_rx: S2mRx<'_>) {
     let pio = Pio::new(p.pio, Irqs);
-    let mut comm = Communicate::new(pio, p.data_pin);
+    let mut comm = Communicate::new(pio, p.data_pin).await;
 
-    let mut buf = [0u8; DATA_SIZE];
+    let mut buf = [0u8; MAX_DATA_SIZE];
 
     loop {
-        match select(comm.recv_data::<DATA_SIZE>(&mut buf), s2m_rx.receive()).await {
+        match select(comm.recv_data::<MAX_DATA_SIZE>(&mut buf), s2m_rx.receive()).await {
             Either::First(_) => {
                 // TODO: 入力値チェックをしたい(allocがないと無理？)
                 let archived = unsafe { rkyv::archived_root::<MasterToSlave>(&buf[..]) };
@@ -114,19 +114,19 @@ pub async fn slave_split_handle(p: SplitInputPeripherals, m2s_tx: M2sTx<'_>, s2m
                 m2s_tx.send(data).await;
             }
             Either::Second(send_data) => {
-                let mut serializer = BufferSerializer::new(AlignedBytes([0u8; DATA_SIZE]));
+                let mut serializer = BufferSerializer::new(AlignedBytes([0u8; MAX_DATA_SIZE]));
                 serializer.serialize_value(&send_data).unwrap();
                 let data = serializer.into_inner();
 
-                comm.send_data::<DATA_SIZE>(data.as_slice()).await;
+                comm.send_data::<MAX_DATA_SIZE>(data.as_slice()).await;
 
                 let mut str = heapless::String::<256>::new();
                 write!(
                     str,
                     "s:{:?}\n{:?}\n{:?}",
-                    &data[0..7],
-                    &data[8..15],
-                    send_data
+                    &data[0..6],
+                    &data[7..13],
+                    &data[14..19]
                 )
                 .unwrap();
                 DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
