@@ -1,13 +1,8 @@
 {
   "lspconfig": {
     "rust_analyzer": {
-      "rust-analyzer.cargo.target": "thumbv6m-none-eabi",
-      "rust-analyzer.cargo-watch.allTargets": false,
-      "rust-analyzer.cargo-watch.arguments": [
-        "--target",
-        "thumbv6m-none-eabi"
-      ],
-      "rust-analyzer.checkOnSave.extraArgs": [
+      "rust-analyzer.check.allTargets": false,
+      "rust-analyzer.check.extraArgs": [
         "--target",
         "thumbv6m-none-eabi"
       ]
