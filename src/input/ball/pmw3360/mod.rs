@@ -2,8 +2,6 @@ mod registers;
 mod srom_liftoff;
 mod srom_tracking;
 
-use core::convert::Infallible;
-
 use embassy_rp::{
     gpio::Output,
     spi::{Async, Instance, Spi},
@@ -24,6 +22,20 @@ pub struct BurstData {
     pub shutter: u16,
 }
 
+#[derive(Debug)]
+pub enum Pmw3360Error {
+    InvalidSignature,
+    SpiError(embassy_rp::spi::Error),
+}
+
+impl From<embassy_rp::spi::Error> for Pmw3360Error {
+    fn from(e: embassy_rp::spi::Error) -> Self {
+        Pmw3360Error::SpiError(e)
+    }
+}
+
+type Result<T> = core::result::Result<T, Pmw3360Error>;
+
 pub struct Pmw3360<'d, T: Instance> {
     spi: Spi<'d, T, Async>,
     cs_pin: Output<'d>,
@@ -33,35 +45,32 @@ pub struct Pmw3360<'d, T: Instance> {
 }
 
 impl<'d, T: Instance> Pmw3360<'d, T> {
-    pub async fn new(spi: Spi<'d, T, Async>, cs_pin: Output<'d>) -> Self {
+    pub async fn new(spi: Spi<'d, T, Async>, cs_pin: Output<'d>) -> Result<Self> {
         let mut pmw3360 = Self {
             spi,
             cs_pin,
             rw_flag: true,
         };
 
-        pmw3360.power_up().await.unwrap();
+        pmw3360.power_up().await?;
 
-        pmw3360
+        Ok(pmw3360)
     }
 
-    pub async fn burst_read(&mut self) -> Result<BurstData, Infallible> {
+    pub async fn burst_read(&mut self) -> Result<BurstData> {
         // TODO: propagate errors
 
         // Write any value to Motion_burst register
         // if any write occured before
         if self.rw_flag {
-            self.write(reg::MOTION_BURST, 0x00).await.ok();
+            self.write(reg::MOTION_BURST, 0x00).await?;
             self.rw_flag = false;
         }
 
         // Lower NCS
         self.cs_pin.set_low();
         // Send Motion_burst address
-        self.spi
-            .transfer_in_place(&mut [reg::MOTION_BURST])
-            .await
-            .ok();
+        self.spi.transfer_in_place(&mut [reg::MOTION_BURST]).await?;
 
         // tSRAD_MOTBR
         Timer::after_micros(35).await;
@@ -97,7 +106,7 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         Ok(data)
     }
 
-    pub async fn set_cpi(&mut self, cpi: u16) -> Result<(), Infallible> {
+    pub async fn set_cpi(&mut self, cpi: u16) -> Result<()> {
         let val: u16;
         if cpi < 100 {
             val = 0
@@ -106,16 +115,16 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         } else {
             val = (cpi - 100) / 100;
         }
-        self.write(reg::CONFIG_1, val as u8).await.ok();
+        self.write(reg::CONFIG_1, val as u8).await?;
         Ok(())
     }
 
-    pub async fn get_cpi(&mut self) -> Result<u16, Infallible> {
+    pub async fn get_cpi(&mut self) -> Result<u16> {
         let val = self.read(reg::CONFIG_1).await.unwrap_or_default() as u16;
         Ok((val + 1) * 100)
     }
 
-    pub async fn check_signature(&mut self) -> Result<bool, Infallible> {
+    pub async fn check_signature(&mut self) -> Result<bool> {
         // TODO: propagate errors
 
         let srom = self.read(reg::SROM_ID).await.unwrap_or(0);
@@ -127,8 +136,8 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
     }
 
     #[allow(dead_code)]
-    pub async fn self_test(&mut self) -> Result<bool, Infallible> {
-        self.write(reg::SROM_ENABLE, 0x15).await.ok();
+    pub async fn self_test(&mut self) -> Result<bool> {
+        self.write(reg::SROM_ENABLE, 0x15).await?;
         Timer::after_micros(10000).await;
 
         let u = self.read(reg::DATA_OUT_UPPER).await.unwrap_or(0); // should be 0xBE
@@ -137,7 +146,7 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         Ok(u == 0xBE && l == 0xEF)
     }
 
-    async fn write(&mut self, address: u8, data: u8) -> Result<(), Infallible> {
+    async fn write(&mut self, address: u8, data: u8) -> Result<()> {
         // TODO: propagate errors
 
         self.cs_pin.set_low();
@@ -145,9 +154,9 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         Timer::after_micros(1).await;
 
         // send adress of the register, with MSBit = 1 to indicate it's a write
-        self.spi.transfer_in_place(&mut [address | 0x80]).await.ok();
+        self.spi.transfer_in_place(&mut [address | 0x80]).await?;
         // send data
-        self.spi.transfer_in_place(&mut [data]).await.ok();
+        self.spi.transfer_in_place(&mut [data]).await?;
 
         // tSCLK-NCS (write)
         Timer::after_micros(35).await;
@@ -161,14 +170,14 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         Ok(())
     }
 
-    async fn read(&mut self, address: u8) -> Result<u8, Infallible> {
+    async fn read(&mut self, address: u8) -> Result<u8> {
         // TODO: propagate errors
         self.cs_pin.set_low();
         // tNCS-SCLK
         Timer::after_micros(1).await;
 
         // send adress of the register, with MSBit = 0 to indicate it's a read
-        self.spi.transfer_in_place(&mut [address & 0x7f]).await.ok();
+        self.spi.transfer_in_place(&mut [address & 0x7f]).await?;
 
         // tSRAD
         Timer::after_micros(160).await;
@@ -191,7 +200,7 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         Ok(ret)
     }
 
-    async fn power_up(&mut self) -> Result<(), Infallible> {
+    pub async fn power_up(&mut self) -> Result<()> {
         // TODO: propagate errors
         // sensor reset not active
         // self.reset_pin.set_high().ok();
@@ -203,48 +212,48 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         Timer::after_micros(50).await;
 
         // Write to reset register
-        self.write(reg::POWER_UP_RESET, 0x5A).await.ok();
+        self.write(reg::POWER_UP_RESET, 0x5A).await?;
         // 100 ms delay
         Timer::after_micros(100).await;
 
         // read registers 0x02 to 0x06 (and discard the data)
-        self.read(reg::MOTION).await.ok();
-        self.read(reg::DELTA_X_L).await.ok();
-        self.read(reg::DELTA_X_H).await.ok();
-        self.read(reg::DELTA_Y_L).await.ok();
-        self.read(reg::DELTA_Y_H).await.ok();
+        self.read(reg::MOTION).await?;
+        self.read(reg::DELTA_X_L).await?;
+        self.read(reg::DELTA_X_H).await?;
+        self.read(reg::DELTA_Y_L).await?;
+        self.read(reg::DELTA_Y_H).await?;
 
         // upload the firmware
-        self.upload_fw().await.ok();
+        self.upload_fw().await?;
 
         let is_valid_signature = self.check_signature().await.unwrap_or(false);
 
         // Write 0x00 (rest disable) to Config2 register for wired mouse or 0x20 for
         // wireless mouse design.
-        self.write(reg::CONFIG_2, 0x00).await.ok();
+        self.write(reg::CONFIG_2, 0x00).await?;
 
         Timer::after_micros(100).await;
 
         if is_valid_signature {
-            return Ok(());
-        };
-
-        Ok(())
+            Ok(())
+        } else {
+            Err(Pmw3360Error::InvalidSignature)
+        }
     }
 
-    async fn upload_fw(&mut self) -> Result<(), Infallible> {
+    async fn upload_fw(&mut self) -> Result<()> {
         // TODO: propagate errors
         // Write 0 to Rest_En bit of Config2 register to disable Rest mode.
-        self.write(reg::CONFIG_2, 0x00).await.ok();
+        self.write(reg::CONFIG_2, 0x00).await?;
 
         // write 0x1d in SROM_enable reg for initializing
-        self.write(reg::SROM_ENABLE, 0x1d).await.ok();
+        self.write(reg::SROM_ENABLE, 0x1d).await?;
 
         // wait for 10 ms
         Timer::after_micros(10000).await;
 
         // write 0x18 to SROM_enable to start SROM download
-        self.write(reg::SROM_ENABLE, 0x18).await.ok();
+        self.write(reg::SROM_ENABLE, 0x18).await?;
 
         // lower NCS
         self.cs_pin.set_low();
@@ -252,13 +261,12 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         // first byte is address
         self.spi
             .transfer_in_place(&mut [reg::SROM_LOAD_BURST | 0x80])
-            .await
-            .ok();
+            .await?;
         Timer::after_micros(15).await;
 
         // send the rest of the firmware
         for element in srom_tracking::FW.iter() {
-            self.spi.transfer_in_place(&mut [*element]).await.ok();
+            self.spi.transfer_in_place(&mut [*element]).await?;
             Timer::after_micros(15).await;
         }
 
@@ -266,12 +274,5 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
         self.cs_pin.set_high();
         Timer::after_micros(200).await;
         Ok(())
-    }
-}
-
-impl<'d, T: Instance> Pmw3360<'d, T> {
-    /// Get product id
-    pub async fn get_product_id(&mut self) -> u8 {
-        self.read(reg::PRODUCT_ID).await.unwrap()
     }
 }

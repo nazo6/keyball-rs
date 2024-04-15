@@ -82,7 +82,7 @@ pub async fn start(peripherals: InputPeripherals, hid: Option<Hid<'_>>) {
     let led_ctrl_rx = led_ctrl_chan.receiver();
     let led_ctrl_tx = led_ctrl_chan.sender();
 
-    let ball = ball::Ball::init(peripherals.ball).await;
+    let ball = ball::Ball::init(peripherals.ball).await.ok();
     let keyboard = keyboard::Keyboard::new(peripherals.keyboard);
 
     join(

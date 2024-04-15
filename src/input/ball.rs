@@ -3,6 +3,7 @@ use embassy_rp::{
     peripherals::SPI0,
     spi::Spi,
 };
+use embassy_time::Timer;
 use usbd_hid::descriptor::MouseReport;
 
 use super::BallPeripherals;
@@ -17,7 +18,7 @@ pub struct Ball<'d> {
 impl<'d> Ball<'d> {
     /// Initializes the ball sensor and returns ball instance.
     /// If no sensor is found, returns None.
-    pub async fn init(p: BallPeripherals) -> Option<Self> {
+    pub async fn init(p: BallPeripherals) -> Result<Self, pmw3360::Pmw3360Error> {
         let mut spi_config = embassy_rp::spi::Config::default();
         spi_config.frequency = 2_000_000;
         spi_config.polarity = embassy_rp::spi::Polarity::IdleHigh;
@@ -31,31 +32,29 @@ impl<'d> Ball<'d> {
             p.spi_dma_ch1,
             spi_config,
         );
-        let mut pmw3360 = pmw3360::Pmw3360::new(spi, Output::new(p.ncs, Level::High)).await;
+        let mut pmw3360 = pmw3360::Pmw3360::new(spi, Output::new(p.ncs, Level::High)).await?;
 
-        if pmw3360.get_product_id().await != 0x42 {
-            return None;
-        }
+        Timer::after_millis(50).await;
 
         let _ = pmw3360.set_cpi(300).await;
 
-        Some(Self { driver: pmw3360 })
+        Ok(Self { driver: pmw3360 })
     }
 
     /// Reads the sensor data.
-    pub async fn read(&mut self) -> Option<MouseReport> {
-        let data = self.driver.burst_read().await.unwrap();
+    pub async fn read(&mut self) -> Result<Option<MouseReport>, pmw3360::Pmw3360Error> {
+        let data = self.driver.burst_read().await?;
 
         if data.dx == 0 && data.dy == 0 {
-            return None;
+            return Ok(None);
         }
 
-        Some(MouseReport {
+        Ok(Some(MouseReport {
             buttons: 0,
             x: data.dy as i8,
             y: data.dx as i8,
             wheel: 0,
             pan: 0,
-        })
+        }))
     }
 }

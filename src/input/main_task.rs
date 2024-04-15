@@ -20,7 +20,7 @@ async fn read_report(
 ) -> (Option<KeyboardReport>, Option<MouseReport>) {
     if let Some(ball) = ball {
         let (ball, keyboard) = join(ball.read(), keyboard.read(other_side_keys)).await;
-        (keyboard, ball)
+        (keyboard, ball.unwrap())
     } else {
         let keyboard = keyboard.read(other_side_keys).await;
         (keyboard, None)
