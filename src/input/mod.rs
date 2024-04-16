@@ -1,6 +1,10 @@
-use embassy_futures::join::join;
+use embassy_futures::{
+    join::join,
+    select::{select, Either},
+};
 use embassy_rp::{peripherals::*, usb::Driver};
 use embassy_sync::channel::Channel;
+use embassy_time::Timer;
 use embassy_usb::class::hid::HidReaderWriter;
 
 mod ball;
@@ -58,17 +62,12 @@ pub struct Hid<'a> {
 /// Starts the input task.
 /// If hid is Some, this is master side, and report will be sent to the USB device.
 /// If hid is None, this is slave side, and report will be sent to the master.
-pub async fn start(peripherals: InputPeripherals, hid: Option<Hid<'_>>) {
-    // let hid = if let Some(hid) = hid {
-    //     // TODO: handle keyboard reader
-    //     let (kb_reader, kb_writer) = hid.keyboard.split();
-    //     let (_mouse_reader, mouse_writer) = hid.mouse.split();
-    //     Some((kb_writer, mouse_writer))
-    // } else {
-    //     None
-    // };
-
-    let hid = hid.unwrap();
+pub async fn start(peripherals: InputPeripherals, mut hid: Hid<'_>) {
+    // If usb connection is ready, this is master side.
+    let is_master = match select(hid.keyboard.ready(), Timer::after_secs(2)).await {
+        Either::First(_) => true,
+        Either::Second(_) => false,
+    };
 
     let s2m_chan: split::S2mChannel = Channel::new();
     let s2m_tx = s2m_chan.sender();
@@ -87,22 +86,18 @@ pub async fn start(peripherals: InputPeripherals, hid: Option<Hid<'_>>) {
 
     join(
         async {
-            // TODO: masterとslaveをちゃんと判定する
-            match &ball {
-                Some(_) => {
-                    join(
-                        split::master_split_handle(peripherals.split, m2s_rx, s2m_tx),
-                        main_task::main_master_task(hid, ball, keyboard, s2m_rx, m2s_tx),
-                    )
-                    .await
-                }
-                None => {
-                    join(
-                        split::slave_split_handle(peripherals.split, m2s_tx, s2m_rx),
-                        main_task::main_slave_task(ball, keyboard, m2s_rx, s2m_tx),
-                    )
-                    .await
-                }
+            if is_master {
+                join(
+                    split::master_split_handle(peripherals.split, m2s_rx, s2m_tx),
+                    main_task::main_master_task(hid, ball, keyboard, s2m_rx, m2s_tx),
+                )
+                .await
+            } else {
+                join(
+                    split::slave_split_handle(peripherals.split, m2s_tx, s2m_rx),
+                    main_task::main_slave_task(ball, keyboard, m2s_rx, s2m_tx),
+                )
+                .await
             }
         },
         led::start(peripherals.led, led_ctrl_rx),

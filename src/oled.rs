@@ -4,6 +4,7 @@ use embassy_rp::{
     i2c::{Blocking, I2c},
     peripherals::{I2C1, PIN_2, PIN_3},
 };
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyleBuilder},
     pixelcolor::BinaryColor,

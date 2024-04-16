@@ -49,7 +49,7 @@ async fn main(_spawner: Spawner) {
 
     display.draw_text("Hello world!");
 
-    *(DISPLAY.lock()).await = Some(display);
+    let mut device_handler = UsbDeviceHandler::new();
 
     // Usb keyboard and mouse
     let opts = UsbOpts {
@@ -59,13 +59,16 @@ async fn main(_spawner: Spawner) {
         msos_descriptor: &mut [0; 256],
         control_buf: &mut [0; 64],
         request_handler: &UsbRequestHandler {},
-        device_handler: &mut UsbDeviceHandler::new(),
+        device_handler: &mut device_handler,
         state_kb: &mut State::new(),
         state_mouse: &mut State::new(),
     };
     let mut usb = usb::create_usb(opts);
 
     let usb_fut = async { usb.device.run().await };
+
+    *(DISPLAY.lock()).await = Some(display);
+
     let input_fut = input::start(
         InputPeripherals {
             keyboard: input::KeyboardPeripherals {
@@ -99,10 +102,10 @@ async fn main(_spawner: Spawner) {
                 dma: p.DMA_CH2,
             },
         },
-        Some(Hid {
+        Hid {
             keyboard: usb.keyboard_hid,
             mouse: usb.mouse_hid,
-        }),
+        },
     );
 
     join(usb_fut, input_fut).await;
