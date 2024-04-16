@@ -2,12 +2,11 @@ mod registers;
 mod srom_liftoff;
 mod srom_tracking;
 
-use embassy_rp::{
-    gpio::Output,
-    spi::{Async, Instance, Spi},
-};
 use embassy_time::Timer;
 use registers as reg;
+
+use crate::device::gpio::Output;
+use crate::device::spi_ball::Spi;
 
 #[derive(Default)]
 pub struct BurstData {
@@ -36,16 +35,16 @@ impl From<embassy_rp::spi::Error> for Pmw3360Error {
 
 type Result<T> = core::result::Result<T, Pmw3360Error>;
 
-pub struct Pmw3360<'d, T: Instance> {
-    spi: Spi<'d, T, Async>,
+pub struct Pmw3360<'d> {
+    spi: Spi<'d>,
     cs_pin: Output<'d>,
     // reset_pin: RESET,
     // rw_flag is set if any writes or reads were performed
     rw_flag: bool,
 }
 
-impl<'d, T: Instance> Pmw3360<'d, T> {
-    pub async fn new(spi: Spi<'d, T, Async>, cs_pin: Output<'d>) -> Result<Self> {
+impl<'d> Pmw3360<'d> {
+    pub async fn new(spi: Spi<'d>, cs_pin: Output<'d>) -> Result<Self> {
         let mut pmw3360 = Self {
             spi,
             cs_pin,
@@ -77,11 +76,11 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
 
         // Read the 12 bytes of burst data
         let mut buf = [0u8; 12];
-        for i in 0..buf.len() {
+        for b in buf.iter_mut() {
             let t_buf = &mut [0x00];
             match self.spi.transfer_in_place(t_buf).await {
-                Ok(()) => buf[i] = *t_buf.first().unwrap(),
-                Err(_) => buf[i] = 0,
+                Ok(()) => *b = *t_buf.first().unwrap(),
+                Err(_) => *b = 0,
             }
         }
 
@@ -184,7 +183,7 @@ impl<'d, T: Instance> Pmw3360<'d, T> {
 
         let mut ret = 0;
         let mut buf = [0x00];
-        if let Ok(_) = self.spi.transfer_in_place(&mut buf).await {
+        if (self.spi.transfer_in_place(&mut buf).await).is_ok() {
             ret = *buf.first().unwrap();
         }
 

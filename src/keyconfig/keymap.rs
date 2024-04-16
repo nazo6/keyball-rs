@@ -1,7 +1,5 @@
-use crate::{
-    constant::{COLS, ROWS},
-    keycodes::*,
-};
+use super::keycodes::*;
+use crate::constant::{COLS, ROWS};
 
 #[rustfmt::skip]
 pub const KEYMAP: [[u8; COLS * 2]; ROWS] = [

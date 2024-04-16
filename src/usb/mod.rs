@@ -1,29 +1,36 @@
 use defmt_rtt as _;
-use embassy_rp::peripherals::USB;
-use embassy_rp::usb::Driver;
 use embassy_usb::class::hid::{HidReaderWriter, RequestHandler, State};
 use embassy_usb::{Builder, Config, Handler, UsbDevice};
 use usbd_hid::descriptor::{KeyboardReport, MouseReport, SerializedDescriptor};
 
-pub struct UsbOpts<'d, RH: RequestHandler, DH: Handler> {
-    pub driver: Driver<'d, USB>,
-    pub config_descriptor: &'d mut [u8],
-    pub bos_descriptor: &'d mut [u8],
-    pub msos_descriptor: &'d mut [u8],
-    pub control_buf: &'d mut [u8],
-    pub request_handler: &'d RH,
-    pub device_handler: &'d mut DH,
-    pub state_kb: &'d mut State<'d>,
-    pub state_mouse: &'d mut State<'d>,
+use crate::device::usb::DeviceDriver;
+
+pub mod device_handler;
+pub mod request_handler;
+
+pub struct Hid<'a> {
+    pub keyboard: HidReaderWriter<'a, DeviceDriver<'a>, 1, 8>,
+    pub mouse: HidReaderWriter<'a, DeviceDriver<'a>, 1, 8>,
 }
 
-pub struct UsbRet<'d> {
-    pub device: UsbDevice<'d, Driver<'d, USB>>,
-    pub keyboard_hid: HidReaderWriter<'d, Driver<'d, USB>, 1, 8>,
-    pub mouse_hid: HidReaderWriter<'d, Driver<'d, USB>, 1, 8>,
+pub struct UsbOpts<'a, RH: RequestHandler, DH: Handler> {
+    pub driver: DeviceDriver<'a>,
+    pub config_descriptor: &'a mut [u8],
+    pub bos_descriptor: &'a mut [u8],
+    pub msos_descriptor: &'a mut [u8],
+    pub control_buf: &'a mut [u8],
+    pub request_handler: &'a RH,
+    pub device_handler: &'a mut DH,
+    pub state_kb: &'a mut State<'a>,
+    pub state_mouse: &'a mut State<'a>,
 }
 
-pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> UsbRet {
+pub struct UsbResource<'a> {
+    pub device: UsbDevice<'a, DeviceDriver<'a>>,
+    pub hid: Hid<'a>,
+}
+
+pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> UsbResource {
     // Create embassy-usb Config
     let mut config = Config::new(0xc0de, 0xcafe);
     config.manufacturer = Some("Yowkees/nazo6");
@@ -65,9 +72,11 @@ pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> Usb
     // Build the builder.
     let usb = builder.build();
 
-    UsbRet {
+    UsbResource {
         device: usb,
-        keyboard_hid,
-        mouse_hid,
+        hid: Hid {
+            keyboard: keyboard_hid,
+            mouse: mouse_hid,
+        },
     }
 }

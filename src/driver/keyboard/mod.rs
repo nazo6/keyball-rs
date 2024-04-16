@@ -1,9 +1,9 @@
-use embassy_rp::gpio::{Flex, Pull};
 use usbd_hid::descriptor::KeyboardReport;
 
-use crate::{keycodes::KC_NO, keymap};
-
-use super::KeyboardPeripherals;
+use crate::device::gpio::{Flex, Pull};
+use crate::device::peripherals::KeyboardPeripherals;
+use crate::keyconfig::keycodes::KC_NO;
+use crate::keyconfig::keymap;
 
 pub struct Keyboard<'a> {
     rows: [Flex<'a>; 5],

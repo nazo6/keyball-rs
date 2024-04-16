@@ -53,6 +53,10 @@ rkyv = { version = "0.7.44", default-features = false, features = [
   "bytecheck",
 ] }
 
+[features]
+default = ["rp2040"]
+rp2040 = []
+
 [profile.release]
 lto = true
 opt-level = "s"

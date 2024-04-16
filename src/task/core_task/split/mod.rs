@@ -1,25 +1,20 @@
 use core::fmt::Write;
 
 use crate::constant::SPLIT_CHANNEL_SIZE;
-use crate::DISPLAY;
+use crate::device::interrupts::Irqs;
+use crate::display::DISPLAY;
 use embassy_futures::select::{select, Either};
-use embassy_rp::bind_interrupts;
-use embassy_rp::peripherals::PIO0;
-use embassy_rp::pio::{InterruptHandler, Pio};
+use embassy_rp::pio::Pio;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
 
 use self::communicate::Communicate;
 
-use super::SplitInputPeripherals;
+use super::SplitPeripherals;
 
 mod communicate;
 mod data;
 pub use data::*;
-
-bind_interrupts!(struct Irqs {
-    PIO0_IRQ_0 => InterruptHandler<PIO0>;
-});
 
 pub type S2mChannel = Channel<ThreadModeRawMutex, SlaveToMaster, SPLIT_CHANNEL_SIZE>;
 pub type S2mRx<'a> = Receiver<'a, ThreadModeRawMutex, SlaveToMaster, SPLIT_CHANNEL_SIZE>;
@@ -40,7 +35,7 @@ pub type M2sTx<'a> = Sender<'a, ThreadModeRawMutex, MasterToSlave, SPLIT_CHANNEL
 /// Starts background task for master side that
 /// - send data from slave to m2s channel.
 /// - receive data from s2m channel and send it to slave.
-pub async fn master_split_handle(p: SplitInputPeripherals, m2s_rx: M2sRx<'_>, s2m_tx: S2mTx<'_>) {
+pub async fn master_split_handle(p: SplitPeripherals, m2s_rx: M2sRx<'_>, s2m_tx: S2mTx<'_>) {
     let pio = Pio::new(p.pio, Irqs);
     let mut comm = Communicate::new(pio, p.data_pin).await;
 
@@ -71,7 +66,7 @@ pub async fn master_split_handle(p: SplitInputPeripherals, m2s_rx: M2sRx<'_>, s2
     }
 }
 
-pub async fn slave_split_handle(p: SplitInputPeripherals, m2s_tx: M2sTx<'_>, s2m_rx: S2mRx<'_>) {
+pub async fn slave_split_handle(p: SplitPeripherals, m2s_tx: M2sTx<'_>, s2m_rx: S2mRx<'_>) {
     let pio = Pio::new(p.pio, Irqs);
     let mut comm = Communicate::new(pio, p.data_pin).await;
 
