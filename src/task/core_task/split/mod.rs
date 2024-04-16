@@ -1,8 +1,5 @@
-use core::fmt::Write;
-
 use crate::constant::SPLIT_CHANNEL_SIZE;
 use crate::device::interrupts::Irqs;
-use crate::display::DISPLAY;
 use embassy_futures::select::{select, Either};
 use embassy_rp::pio::Pio;
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -45,17 +42,6 @@ pub async fn master_split_handle(p: SplitPeripherals, m2s_rx: M2sRx<'_>, s2m_tx:
             Either::First(_) => {
                 let data = SlaveToMaster::from_bytes(&buf);
 
-                let mut str = heapless::String::<512>::new();
-                write!(
-                    str,
-                    "r:{:?}\n{:?}\n{:?}",
-                    &buf[0..6],
-                    &buf[7..13],
-                    &buf[14..19]
-                )
-                .unwrap();
-                DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
-
                 s2m_tx.send(data).await;
             }
             Either::Second(send_data) => {
@@ -78,27 +64,12 @@ pub async fn slave_split_handle(p: SplitPeripherals, m2s_tx: M2sTx<'_>, s2m_rx: 
                 // TODO: 入力値チェックをしたい(allocがないと無理？)
                 let data = MasterToSlave::from_bytes(&buf);
 
-                let mut str = heapless::String::<512>::new();
-                write!(str, "recv_sl:\n{:?}", data).unwrap();
-                DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
-
                 m2s_tx.send(data).await;
             }
             Either::Second(send_data) => {
                 let data = send_data.to_bytes();
 
                 comm.send_data::<MAX_DATA_SIZE>(data.as_slice()).await;
-
-                let mut str = heapless::String::<256>::new();
-                write!(
-                    str,
-                    "s:{:?}\n{:?}\n{:?}",
-                    &data[0..6],
-                    &data[7..13],
-                    &data[14..19]
-                )
-                .unwrap();
-                DISPLAY.lock().await.as_mut().unwrap().draw_text(&str);
             }
         }
     }

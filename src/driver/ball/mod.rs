@@ -3,7 +3,6 @@ use crate::device::{
     spi_ball::create_ball_spi,
 };
 use embassy_time::Timer;
-use usbd_hid::descriptor::MouseReport;
 
 use crate::device::peripherals::BallPeripherals;
 
@@ -29,19 +28,13 @@ impl<'d> Ball<'d> {
     }
 
     /// Reads the sensor data.
-    pub async fn read(&mut self) -> Result<Option<MouseReport>, pmw3360::Pmw3360Error> {
+    pub async fn read(&mut self) -> Result<Option<(i8, i8)>, pmw3360::Pmw3360Error> {
         let data = self.driver.burst_read().await?;
 
         if data.dx == 0 && data.dy == 0 {
             return Ok(None);
         }
 
-        Ok(Some(MouseReport {
-            buttons: 0,
-            x: data.dy as i8,
-            y: data.dx as i8,
-            wheel: 0,
-            pan: 0,
-        }))
+        Ok(Some((data.dx as i8, data.dy as i8)))
     }
 }

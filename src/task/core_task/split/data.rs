@@ -35,7 +35,7 @@ impl_serde!(MasterToSlave);
 // #[archive(check_bytes)]
 pub enum SlaveToMaster {
     Pressed { keys: [Option<(u8, u8)>; 6] },
-    Mouse { dx: u8, dy: u8 },
+    Mouse { x: i8, y: i8 },
     Message(u8),
 }
 

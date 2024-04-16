@@ -1,36 +1,72 @@
+use core::fmt::Write;
+
+use embassy_futures::join::join;
 use embassy_time::Timer;
 
 use crate::{
     display::DISPLAY,
-    driver::{ball::Ball, keyboard::Keyboard},
+    driver::{
+        ball::Ball,
+        keyboard::{pressed::Pressed, Keyboard},
+    },
 };
 
 use super::split::{M2sRx, S2mTx};
 
-pub async fn main_slave_task(
+/// Slave-side main task.
+pub async fn start(
     mut ball: Option<Ball<'_>>,
     mut keyboard: Keyboard<'_>,
     m2s_rx: M2sRx<'_>,
     s2m_tx: S2mTx<'_>,
 ) {
-    DISPLAY.lock().await.as_mut().unwrap().draw_text("slave");
+    DISPLAY.set_master(false).await;
 
-    let mut pressed_keys_prev = [None; 6];
+    let mut pressed = Pressed::new();
     loop {
-        let pressed = keyboard.read_matrix().await;
-        let mut pressed_keys = [None; 6];
-        for (i, (row, col)) in pressed.iter().enumerate() {
-            if i >= pressed_keys.len() {
-                break;
-            }
-            pressed_keys[i] = Some((*row, *col));
-        }
-        if pressed_keys != pressed_keys_prev {
-            s2m_tx
-                .send(super::split::SlaveToMaster::Pressed { keys: pressed_keys })
-                .await;
-            pressed_keys_prev = pressed_keys;
-        }
+        let start = embassy_time::Instant::now();
+
+        join(
+            async {
+                let changed = keyboard.scan_and_update(&mut pressed).await;
+                if changed {
+                    let mut keys = [None; 6];
+
+                    for (idx, (row, col)) in pressed.iter().enumerate() {
+                        if idx >= keys.len() {
+                            break;
+                        }
+                        keys[idx] = Some((row, col));
+                    }
+
+                    let mut str = heapless::String::<256>::new();
+                    for (row, col) in keys.iter().flatten() {
+                        write!(str, "{}:{},", row, col).unwrap();
+                    }
+                    DISPLAY.set_message(&str).await;
+
+                    s2m_tx
+                        .send(super::split::SlaveToMaster::Pressed { keys })
+                        .await;
+                }
+            },
+            async {
+                if let Some(ball) = &mut ball {
+                    if let Ok(Some(data)) = ball.read().await {
+                        s2m_tx
+                            .send(super::split::SlaveToMaster::Mouse {
+                                // x and y are swapped
+                                x: data.0,
+                                y: data.1,
+                            })
+                            .await;
+                    }
+                }
+            },
+        )
+        .await;
+
+        DISPLAY.set_update_time(start.elapsed().as_millis()).await;
 
         Timer::after_millis(10).await;
     }

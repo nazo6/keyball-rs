@@ -1,53 +1,114 @@
+use core::fmt::Write as _;
+
 use embassy_futures::join::join;
 use embassy_time::Timer;
+use usbd_hid::descriptor::{KeyboardReport, MouseReport};
 
 use crate::{
     display::DISPLAY,
-    driver::{ball::Ball, keyboard::Keyboard},
+    driver::{
+        ball::Ball,
+        keyboard::{pressed::Pressed, Keyboard},
+    },
+    keyconfig::keycodes::KC_NO,
     usb::Hid,
 };
 
-use super::{
-    split::{M2sTx, S2mRx, SlaveToMaster},
-    utils::read_report,
-};
+use super::split::{M2sTx, S2mRx, SlaveToMaster};
 
-pub async fn main_master_task(
+/// Master-side main task.
+pub async fn start(
     hid: Hid<'_>,
     mut ball: Option<Ball<'_>>,
     mut keyboard: Keyboard<'_>,
     s2m_rx: S2mRx<'_>,
     m2s_tx: M2sTx<'_>,
 ) {
+    DISPLAY.set_master(true).await;
+
     let (kb_reader, mut kb_writer) = hid.keyboard.split();
     let (_mouse_reader, mut mouse_writer) = hid.mouse.split();
 
-    DISPLAY.lock().await.as_mut().unwrap().draw_text("master");
-
     let mut empty_kb_sent = false;
-    let mut other_side_keys = [None; 6];
+    let mut keyboard_state = Pressed::new();
+    let mut slave_keys = [None; 6];
+
     loop {
+        let start = embassy_time::Instant::now();
+
+        let mut mouse: Option<(i8, i8)> = None;
+
         while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
+            let mut str = heapless::String::<256>::new();
+            write!(str, "{:?}", cmd_from_slave).unwrap();
+            DISPLAY.set_message(&str).await;
+
             match cmd_from_slave {
                 SlaveToMaster::Pressed { keys } => {
-                    other_side_keys = keys;
+                    slave_keys = keys;
+                }
+                SlaveToMaster::Mouse { x, y } => {
+                    if let Some(mouse) = &mut mouse {
+                        mouse.0 += x;
+                        mouse.1 += y;
+                    } else {
+                        mouse = Some((x, y));
+                    }
                 }
                 SlaveToMaster::Message(_) => {}
-                _ => {}
             }
         }
 
-        // master
-        let (kb_report, ball) = read_report(&mut keyboard, ball.as_mut(), &other_side_keys).await;
-
         join(
             async {
-                if let Some(kb_report) = kb_report {
-                    let _ = kb_writer.write_serialize(&kb_report).await;
+                let mut keycodes = [0; 6];
+                let mut idx = 0;
+
+                for (row, col) in slave_keys.iter().flatten() {
+                    if let Some(kc) = keyboard_state.get_keycode(*row, *col) {
+                        if kc == KC_NO {
+                            continue;
+                        }
+                        if idx >= keycodes.len() {
+                            break;
+                        }
+                        keycodes[idx] = kc;
+                        idx += 1;
+                    }
+                }
+
+                keyboard.scan_and_update(&mut keyboard_state).await;
+                let mut str = heapless::String::<256>::new();
+                for (row, col) in keyboard_state.iter() {
+                    write!(str, "{}:{},", row, col).unwrap();
+                    if let Some(kc) = keyboard_state.get_keycode(row, col) {
+                        if idx >= keycodes.len() {
+                            break;
+                        }
+                        keycodes[idx] = kc;
+                        idx += 1;
+                    }
+                }
+
+                DISPLAY.set_message(&str).await;
+
+                if idx > 0 {
+                    DISPLAY.set_keyboard(keycodes).await;
+
+                    let _ = kb_writer
+                        .write_serialize(&KeyboardReport {
+                            keycodes,
+                            leds: 0,
+                            modifier: 0,
+                            reserved: 0,
+                        })
+                        .await;
                     empty_kb_sent = false;
                 } else if !empty_kb_sent {
+                    DISPLAY.set_keyboard([0; 6]).await;
+
                     let _ = kb_writer
-                        .write_serialize(&usbd_hid::descriptor::KeyboardReport {
+                        .write_serialize(&KeyboardReport {
                             keycodes: [0; 6],
                             leds: 0,
                             modifier: 0,
@@ -58,12 +119,34 @@ pub async fn main_master_task(
                 }
             },
             async {
-                if let Some(mouse_report) = ball {
-                    let _ = mouse_writer.write_serialize(&mouse_report).await;
+                if let Some(ball) = &mut ball {
+                    if let Ok(Some((x, y))) = ball.read().await {
+                        if let Some(mouse) = &mut mouse {
+                            mouse.0 += x;
+                            mouse.1 += y;
+                        } else {
+                            mouse = Some((x, y));
+                        }
+                    }
+                }
+
+                if let Some(mouse) = mouse {
+                    let _ = mouse_writer
+                        .write_serialize(&MouseReport {
+                            buttons: 0,
+                            // Mouse x and y are swapped
+                            x: mouse.1,
+                            y: mouse.0,
+                            wheel: 0,
+                            pan: 0,
+                        })
+                        .await;
                 }
             },
         )
         .await;
+
+        DISPLAY.set_update_time(start.elapsed().as_millis()).await;
 
         Timer::after_millis(10).await;
     }

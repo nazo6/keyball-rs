@@ -29,7 +29,7 @@ async fn main(_spawner: Spawner) {
 
     unsafe { double_reset::check_double_tap_bootloader(500).await };
 
-    display::init_display(peripherals.display).await;
+    DISPLAY.init(peripherals.display).await;
 
     let mut device_handler = UsbDeviceHandler::new();
 
@@ -62,16 +62,10 @@ async fn main(_spawner: Spawner) {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     let mut str = heapless::String::<1000>::new();
-
     let loc = info.location().unwrap();
     write!(&mut str, "P:\n{}\n{}\n", loc.file(), loc.line()).unwrap();
 
-    DISPLAY
-        .try_lock()
-        .unwrap()
-        .as_mut()
-        .unwrap()
-        .draw_text(&str);
+    DISPLAY.try_draw_text(&str);
 
     loop {}
 }

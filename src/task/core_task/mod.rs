@@ -6,6 +6,8 @@ use embassy_sync::channel::Channel;
 use embassy_time::Timer;
 
 use crate::{
+    constant::SPLIT_USB_TIMEOUT,
+    display::DISPLAY,
     driver::{ball, keyboard},
     usb::Hid,
 };
@@ -14,7 +16,6 @@ use super::{led_task::LedCtrlTx, BallPeripherals, KeyboardPeripherals, SplitPeri
 
 mod master;
 mod slave;
-mod utils;
 
 mod split;
 
@@ -25,8 +26,10 @@ pub async fn start(
     led_controller: LedCtrlTx<'_>,
     mut hid: Hid<'_>,
 ) {
-    // If usb connection is ready, this is master side.
-    let is_master = match select(hid.keyboard.ready(), Timer::after_secs(2)).await {
+    // VBUS detection is not available for ProMicro RP2040, so USB communication is used to determine master/slave.
+    // This is same as SPLIT_USB_DETECT in QMK.
+    let is_master = match select(hid.keyboard.ready(), Timer::after_millis(SPLIT_USB_TIMEOUT)).await
+    {
         Either::First(_) => true,
         Either::Second(_) => false,
     };
@@ -42,16 +45,18 @@ pub async fn start(
     let ball = ball::Ball::init(ball_peripherals).await.ok();
     let keyboard = keyboard::Keyboard::new(keyboard_peripherals);
 
+    DISPLAY.set_mouse(ball.is_some()).await;
+
     if is_master {
         join(
+            master::start(hid, ball, keyboard, s2m_rx, m2s_tx),
             split::master_split_handle(split_peripherals, m2s_rx, s2m_tx),
-            master::main_master_task(hid, ball, keyboard, s2m_rx, m2s_tx),
         )
         .await;
     } else {
         join(
+            slave::start(ball, keyboard, m2s_rx, s2m_tx),
             split::slave_split_handle(split_peripherals, m2s_tx, s2m_rx),
-            slave::main_slave_task(ball, keyboard, m2s_rx, s2m_tx),
         )
         .await;
     }

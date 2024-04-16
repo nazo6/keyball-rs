@@ -19,9 +19,7 @@ pub struct TaskResource<'a> {
     pub peripherals: TaskPeripherals,
 }
 
-/// Starts the input task.
-/// If hid is Some, this is master side, and report will be sent to the USB device.
-/// If hid is None, this is slave side, and report will be sent to the master.
+/// Starts tasks.
 pub async fn start(r: TaskResource<'_>) {
     let led_ctrl_chan: led_task::LedCtrlChannel = Channel::new();
     let led_ctrl_rx = led_ctrl_chan.receiver();
