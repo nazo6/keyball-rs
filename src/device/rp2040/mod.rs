@@ -36,6 +36,7 @@ pub mod spi_ball {
 
     pub type SpiPeripheral = SPI0;
     pub type Spi<'a> = RpSpi<'a, SpiPeripheral, Async>;
+    pub type SpiError = embassy_rp::spi::Error;
 
     pub fn create_ball_spi(p: BallSpiPeripherals) -> Spi<'static> {
         let mut spi_config = embassy_rp::spi::Config::default();

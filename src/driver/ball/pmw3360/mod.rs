@@ -6,7 +6,7 @@ use embassy_time::Timer;
 use registers as reg;
 
 use crate::device::gpio::Output;
-use crate::device::spi_ball::Spi;
+use crate::device::spi_ball::{Spi, SpiError};
 
 #[derive(Default)]
 pub struct BurstData {
@@ -24,12 +24,12 @@ pub struct BurstData {
 #[derive(Debug)]
 pub enum Pmw3360Error {
     InvalidSignature,
-    SpiError(embassy_rp::spi::Error),
+    Spi(SpiError),
 }
 
-impl From<embassy_rp::spi::Error> for Pmw3360Error {
-    fn from(e: embassy_rp::spi::Error) -> Self {
-        Pmw3360Error::SpiError(e)
+impl From<SpiError> for Pmw3360Error {
+    fn from(e: SpiError) -> Self {
+        Pmw3360Error::Spi(e)
     }
 }
 
