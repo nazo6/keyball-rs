@@ -1,13 +1,13 @@
-use super::keycode::key::Key::*;
-use super::keycode::Keycode::*;
+use super::keycode::key::*;
+use super::keycode::modifier::*;
 use super::keycode::*;
 use crate::constant::{COLS, ROWS};
 
 #[rustfmt::skip]
 pub const KEYMAP: [[Keycode; COLS * 2]; ROWS] = [
-    [____, Key(D1), Key(D2), Key(D3), Key(D4), Key(D5), ____ , ____ , Key(D6), Key(D7), Key(D8)   , Key(D9) , Key(D0), ____],
-    [____, Key(Q) , Key(W) , Key(E) , Key(R) , Key(T) , ____ , ____ , Key(Y) , Key(U) , Key(I)    , Key(O)  , Key(P), ____],
-    [____, Key(A) , Key(S) , Key(D) , Key(F) , Key(G) , ____ , ____ , Key(H) , Key(J) , Key(K)    , Key(L)  , Key(Semicolon), ____],
-    [____, Key(Z) , Key(X) , Key(C) , Key(V) , Key(B) , ____ , ____ , Key(N) , Key(M) , Key(Comma), Key(Dot), Key(Slash), ____],
-    [____, ____   , Key(X) , Key(C) , Key(V) , Key(B) , ____ , ____ , Key(N) , Key(M) , Key(Comma), Key(Dot), Key(Slash), ____],
+    [____  , D1   , D2  , D3  , D4   , D5   , ____ , ____, D6   , D7  , D8  , D9  , D0    , JBSLSH2],
+    [TAB   , Q    , W   , E   , R    , T    , ____ , ____, Y    , U   , I   , O   , P     , MINUS  ],
+    [ESC   , A    , S   , D   , F    , G    , ____ , ____, H    , J   , K   , L   , SEMI  , JCOLN  ],
+    [L_SHFT, Z    , X   , C   , V    , B    , ____ , ____, N    , M   , COMM, DOT , SLASH , JBSLSH ],
+    [L_CTRL, L_GUI, ____, ____, L_ALT, SPACE, SPACE, BS  , ENTER, ____, ____, ____, JCARET, JAT    ],
 ];

@@ -895,6 +895,7 @@ dependencies = [
  "fixed",
  "fixed-macro",
  "heapless",
+ "paste",
  "pio",
  "pio-proc",
  "rkyv",

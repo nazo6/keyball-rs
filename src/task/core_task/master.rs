@@ -8,6 +8,7 @@ use crate::{
     driver::{ball::Ball, keyboard::Keyboard},
     keyboard::{keymap::KEYMAP, pressed::Pressed, state::KeyboardState},
     usb::Hid,
+    utils::print,
 };
 
 use super::split::{M2sTx, S2mRx, SlaveToMaster};

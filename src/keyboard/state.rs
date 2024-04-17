@@ -28,10 +28,11 @@ impl KeyboardState {
     ) -> (KeyboardReport, bool) {
         let mut keycodes = [0; 6];
         let mut keycodes_idx = 0;
+        let mut modifier = 0;
         let mut empty_report = true;
 
-        for (row, col) in master_pressed.iter() {
-            if let Some(kc) = self.get_keycode(row, col) {
+        let mut handle_kc = |kc: Option<Keycode>| {
+            if let Some(kc) = kc {
                 match kc {
                     Keycode::Key(key) => {
                         if keycodes_idx < 6 {
@@ -39,30 +40,24 @@ impl KeyboardState {
                             keycodes_idx += 1;
                         }
                     }
-                    Keycode::Modifier(_) => {}
+                    Keycode::Modifier(key) => {
+                        modifier |= key as u8;
+                    }
                     Keycode::Mouse(_) => {}
                     Keycode::Special(_) => {}
                 }
             }
+        };
+
+        for (row, col) in master_pressed.iter() {
+            handle_kc(self.get_keycode(row, col));
         }
 
         for (row, col) in slave_pressed.iter().flatten() {
-            if let Some(kc) = self.get_keycode(*row, *col) {
-                match kc {
-                    Keycode::Key(key) => {
-                        if keycodes_idx < 6 {
-                            keycodes[keycodes_idx] = key as u8;
-                            keycodes_idx += 1;
-                        }
-                    }
-                    Keycode::Modifier(_) => {}
-                    Keycode::Mouse(_) => {}
-                    Keycode::Special(_) => {}
-                }
-            }
+            handle_kc(self.get_keycode(*row, *col));
         }
 
-        if keycodes_idx > 0 {
+        if keycodes_idx > 0 || modifier != 0 {
             empty_report = false;
         }
 
@@ -70,7 +65,7 @@ impl KeyboardState {
             KeyboardReport {
                 keycodes,
                 leds: 0,
-                modifier: 0,
+                modifier,
                 reserved: 0,
             },
             empty_report,

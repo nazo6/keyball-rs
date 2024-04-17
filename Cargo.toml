@@ -52,6 +52,7 @@ rkyv = { version = "0.7.44", default-features = false, features = [
   "size_32",
   "bytecheck",
 ] }
+paste = "1.0.14"
 
 [features]
 default = ["rp2040"]

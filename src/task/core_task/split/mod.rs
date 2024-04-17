@@ -37,14 +37,16 @@ pub async fn master_split_handle(p: SplitPeripherals, m2s_rx: M2sRx<'_>, s2m_tx:
 
                 if let SlaveToMaster::Pressed { keys } = data {
                     let mut str = heapless::String::<256>::new();
-                    write!(str, "r:");
+                    write!(str, "rk:").unwrap();
                     for (row, col) in keys.iter().flatten() {
                         write!(str, "{},{} ", row, col).unwrap();
                     }
                     DISPLAY.set_message(&str).await;
+                } else if let SlaveToMaster::Mouse { x, y } = data {
+                    print!("rm: x: {}, y: {}", x, y);
                 }
 
-                // let _ = s2m_tx.try_send(data);
+                let _ = s2m_tx.try_send(data);
             }
             Either::Second(send_data) => {
                 comm.send_data::<MAX_DATA_SIZE>(send_data.to_bytes().as_slice())
@@ -69,11 +71,13 @@ pub async fn slave_split_handle(p: SplitPeripherals, m2s_tx: M2sTx<'_>, s2m_rx: 
             Either::Second(send_data) => {
                 if let SlaveToMaster::Pressed { keys } = send_data {
                     let mut str = heapless::String::<256>::new();
-                    write!(str, "s:");
+                    write!(str, "sk:").unwrap();
                     for (row, col) in keys.iter().flatten() {
                         write!(str, "{},{} ", row, col).unwrap();
                     }
                     DISPLAY.set_message(&str).await;
+                } else if let SlaveToMaster::Mouse { x, y } = send_data {
+                    print!("sm: x: {}, y: {}", x, y);
                 }
 
                 let data = send_data.to_bytes();

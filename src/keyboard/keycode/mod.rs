@@ -1,4 +1,5 @@
 pub mod key;
+mod macros;
 pub mod modifier;
 pub mod mouse;
 pub mod special;
