@@ -3,6 +3,7 @@ use embassy_time::Timer;
 use usbd_hid::descriptor::{KeyboardReport, MouseReport};
 
 use crate::{
+    constant::MIN_SCAN_INTERVAL,
     display::DISPLAY,
     driver::{
         ball::Ball,
@@ -31,12 +32,19 @@ pub async fn start(
     let mut keyboard_state = Pressed::new();
     let mut slave_keys = [None; 6];
 
+    let mut kb_report = KeyboardReport {
+        keycodes: [0; 6],
+        leds: 0,
+        modifier: 0,
+        reserved: 0,
+    };
+
     loop {
         let start = embassy_time::Instant::now();
 
         let mut mouse: Option<(i8, i8)> = None;
 
-        while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
+        if let Ok(cmd_from_slave) = s2m_rx.try_receive() {
             match cmd_from_slave {
                 SlaveToMaster::Pressed { keys } => {
                     slave_keys = keys;
@@ -84,28 +92,12 @@ pub async fn start(
                 }
 
                 if idx > 0 {
-                    DISPLAY.set_keyboard(keycodes).await;
-
-                    let _ = kb_writer
-                        .write_serialize(&KeyboardReport {
-                            keycodes,
-                            leds: 0,
-                            modifier: 0,
-                            reserved: 0,
-                        })
-                        .await;
+                    kb_report.keycodes = keycodes;
+                    let _ = kb_writer.write_serialize(&kb_report).await;
                     empty_kb_sent = false;
                 } else if !empty_kb_sent {
-                    DISPLAY.set_keyboard([0; 6]).await;
-
-                    let _ = kb_writer
-                        .write_serialize(&KeyboardReport {
-                            keycodes: [0; 6],
-                            leds: 0,
-                            modifier: 0,
-                            reserved: 0,
-                        })
-                        .await;
+                    kb_report.keycodes = [0; 6];
+                    let _ = kb_writer.write_serialize(&kb_report).await;
                     empty_kb_sent = true;
                 }
             },
@@ -137,8 +129,9 @@ pub async fn start(
         )
         .await;
 
-        DISPLAY.set_update_time(start.elapsed().as_millis()).await;
-
-        Timer::after_millis(10).await;
+        let took = start.elapsed().as_millis();
+        if took < MIN_SCAN_INTERVAL {
+            Timer::after_millis(MIN_SCAN_INTERVAL - took).await;
+        }
     }
 }

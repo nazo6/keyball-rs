@@ -26,12 +26,13 @@ pub async fn master_split_handle(p: SplitPeripherals, m2s_rx: M2sRx<'_>, s2m_tx:
     let mut comm = Communicate::new(p).await;
 
     let mut buf = [0u8; MAX_DATA_SIZE];
+
     loop {
         match select(comm.recv_data::<MAX_DATA_SIZE>(&mut buf), m2s_rx.receive()).await {
             Either::First(_) => {
                 let data = SlaveToMaster::from_bytes(&buf);
 
-                s2m_tx.send(data).await;
+                let _ = s2m_tx.try_send(data);
             }
             Either::Second(send_data) => {
                 comm.send_data::<MAX_DATA_SIZE>(send_data.to_bytes().as_slice())
@@ -51,7 +52,7 @@ pub async fn slave_split_handle(p: SplitPeripherals, m2s_tx: M2sTx<'_>, s2m_rx: 
             Either::First(_) => {
                 let data = MasterToSlave::from_bytes(&buf);
 
-                m2s_tx.send(data).await;
+                let _ = m2s_tx.try_send(data);
             }
             Either::Second(send_data) => {
                 let data = send_data.to_bytes();

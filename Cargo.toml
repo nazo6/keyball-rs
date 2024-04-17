@@ -61,8 +61,4 @@ force-slave = []
 
 [profile.release]
 lto = true
-opt-level = "s"
-codegen-units = 1
-strip = true
-debug = false
 panic = "abort"

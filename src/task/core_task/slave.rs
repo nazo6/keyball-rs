@@ -1,5 +1,3 @@
-use core::fmt::Write;
-
 use embassy_futures::join::join;
 use embassy_time::Timer;
 

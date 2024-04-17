@@ -10,6 +10,9 @@ pub const SPLIT_USB_TIMEOUT: u64 = 300;
 pub const SCAN_COLS: usize = 4;
 pub const SCAN_ROWS: usize = 5;
 
+/// Time (msec) to wait for the next scan
+pub const MIN_SCAN_INTERVAL: u64 = 20;
+
 // Number of columns for one hand
 pub const COLS: usize = 7;
 // Number of rows for one hand
