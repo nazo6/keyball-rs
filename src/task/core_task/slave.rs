@@ -30,7 +30,6 @@ pub async fn start(
             async {
                 let changed = keyboard.scan_and_update(&mut pressed).await;
                 if changed {
-                    print!("p: {:?}", pressed);
                     let mut keys = [None; 6];
 
                     for (idx, (row, col)) in pressed.iter().enumerate() {

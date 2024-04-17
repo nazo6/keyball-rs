@@ -1,8 +1,11 @@
+use core::fmt::Write;
+
 use embassy_futures::select::{select, Either};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
 
 use crate::constant::SPLIT_CHANNEL_SIZE;
+use crate::display::DISPLAY;
 use crate::driver::split::Communicate;
 use crate::utils::print;
 
@@ -32,9 +35,16 @@ pub async fn master_split_handle(p: SplitPeripherals, m2s_rx: M2sRx<'_>, s2m_tx:
             Either::First(_) => {
                 let data = SlaveToMaster::from_bytes(&buf);
 
-                print!("r: {:?}", data);
+                if let SlaveToMaster::Pressed { keys } = data {
+                    let mut str = heapless::String::<256>::new();
+                    write!(str, "r:");
+                    for (row, col) in keys.iter().flatten() {
+                        write!(str, "{},{} ", row, col).unwrap();
+                    }
+                    DISPLAY.set_message(&str).await;
+                }
 
-                let _ = s2m_tx.try_send(data);
+                // let _ = s2m_tx.try_send(data);
             }
             Either::Second(send_data) => {
                 comm.send_data::<MAX_DATA_SIZE>(send_data.to_bytes().as_slice())
@@ -57,6 +67,15 @@ pub async fn slave_split_handle(p: SplitPeripherals, m2s_tx: M2sTx<'_>, s2m_rx: 
                 let _ = m2s_tx.try_send(data);
             }
             Either::Second(send_data) => {
+                if let SlaveToMaster::Pressed { keys } = send_data {
+                    let mut str = heapless::String::<256>::new();
+                    write!(str, "s:");
+                    for (row, col) in keys.iter().flatten() {
+                        write!(str, "{},{} ", row, col).unwrap();
+                    }
+                    DISPLAY.set_message(&str).await;
+                }
+
                 let data = send_data.to_bytes();
 
                 comm.send_data::<MAX_DATA_SIZE>(data.as_slice()).await;

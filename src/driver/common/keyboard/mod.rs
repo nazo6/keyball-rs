@@ -71,6 +71,11 @@ impl<'a> Keyboard<'a> {
             }
 
             for (j, col) in self.cols.iter_mut().enumerate() {
+                // col->rowスキャンではcol=3は存在しない
+                if j == 3 {
+                    continue;
+                }
+
                 col.set_high();
                 col.wait_for_high().await;
 

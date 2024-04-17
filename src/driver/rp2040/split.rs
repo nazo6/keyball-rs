@@ -61,7 +61,7 @@ fn tx_init<'a>(
         "out pins 1 [6]",
         "jmp x-- bitloop",
         "set pins 1",
-        "set pindirs 0 [2]",
+        "set pindirs 0 [6]",
         ".wrap"
     );
     let mut cfg = Config::default();
@@ -131,7 +131,12 @@ impl<'a> Communicate<'a> {
     }
 
     pub async fn recv_byte(&mut self) -> (bool, bool, u8) {
-        let mut data = self.rx_sm.rx().wait_pull().await;
+        let mut data = loop {
+            if let Some(data) = self.rx_sm.rx().try_pull() {
+                break data;
+            }
+            yield_now().await;
+        };
         let end_bit = data & 1;
         data >>= 1;
         let start_bit = data & 1;

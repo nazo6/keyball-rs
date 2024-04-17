@@ -35,8 +35,8 @@ impl Pressed {
             col_raw as usize
         };
 
-        let prev = self.state[row as usize][col as usize];
-        self.state[row as usize][col as usize] = state;
+        let prev = self.state[row as usize][col];
+        self.state[row as usize][col] = state;
         state != prev
     }
 }
