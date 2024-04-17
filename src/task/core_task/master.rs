@@ -39,10 +39,6 @@ pub async fn start(
         let mut mouse: Option<(i8, i8)> = None;
 
         while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
-            let mut str = heapless::String::<256>::new();
-            write!(str, "{:?}", cmd_from_slave).unwrap();
-            DISPLAY.set_message(&str).await;
-
             match cmd_from_slave {
                 SlaveToMaster::Pressed { keys } => {
                     slave_keys = keys;
@@ -78,9 +74,8 @@ pub async fn start(
                 }
 
                 keyboard.scan_and_update(&mut keyboard_state).await;
-                let mut str = heapless::String::<256>::new();
+
                 for (row, col) in keyboard_state.iter() {
-                    write!(str, "{}:{},", row, col).unwrap();
                     if let Some(kc) = keyboard_state.get_keycode(row, col) {
                         if idx >= keycodes.len() {
                             break;
@@ -89,8 +84,6 @@ pub async fn start(
                         idx += 1;
                     }
                 }
-
-                DISPLAY.set_message(&str).await;
 
                 if idx > 0 {
                     DISPLAY.set_keyboard(keycodes).await;

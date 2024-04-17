@@ -39,12 +39,6 @@ pub async fn start(
                         keys[idx] = Some((row, col));
                     }
 
-                    let mut str = heapless::String::<256>::new();
-                    for (row, col) in keys.iter().flatten() {
-                        write!(str, "{}:{},", row, col).unwrap();
-                    }
-                    DISPLAY.set_message(&str).await;
-
                     s2m_tx
                         .send(super::split::SlaveToMaster::Pressed { keys })
                         .await;

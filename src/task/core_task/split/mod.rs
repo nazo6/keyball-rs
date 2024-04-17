@@ -1,4 +1,7 @@
+use core::fmt::Write;
+
 use crate::constant::SPLIT_CHANNEL_SIZE;
+use crate::display::DISPLAY;
 use crate::driver::split::Communicate;
 use embassy_futures::select::{select, Either};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
@@ -29,6 +32,19 @@ pub async fn master_split_handle(p: SplitPeripherals, m2s_rx: M2sRx<'_>, s2m_tx:
             Either::First(_) => {
                 let data = SlaveToMaster::from_bytes(&buf);
 
+                if let data::SlaveToMaster::Pressed { keys, .. } = data {
+                    let mut str = heapless::String::<256>::new();
+                    let mut cnt = 0;
+                    for key in keys.into_iter().flatten() {
+                        write!(str, "{:?},", key).unwrap();
+                        cnt += 1;
+                    }
+                    if cnt == 0 {
+                        write!(str, "no key pressed").unwrap();
+                    }
+                    DISPLAY.set_message(&str).await;
+                }
+
                 s2m_tx.send(data).await;
             }
             Either::Second(send_data) => {
@@ -53,6 +69,19 @@ pub async fn slave_split_handle(p: SplitPeripherals, m2s_tx: M2sTx<'_>, s2m_rx: 
                 m2s_tx.send(data).await;
             }
             Either::Second(send_data) => {
+                if let data::SlaveToMaster::Pressed { keys, .. } = send_data {
+                    let mut str = heapless::String::<256>::new();
+                    let mut cnt = 0;
+                    for key in keys.into_iter().flatten() {
+                        write!(str, "{:?},", key).unwrap();
+                        cnt += 1;
+                    }
+                    if cnt == 0 {
+                        write!(str, "no key pressed").unwrap();
+                    }
+                    DISPLAY.set_message(&str).await;
+                }
+
                 let data = send_data.to_bytes();
 
                 comm.send_data::<MAX_DATA_SIZE>(data.as_slice()).await;

@@ -21,10 +21,10 @@ pub struct KeyboardPeripherals {
     pub row_2: PIN_6,
     pub row_3: PIN_7,
     pub row_4: PIN_8,
-    pub col_0: PIN_26,
-    pub col_1: PIN_27,
-    pub col_2: PIN_28,
-    pub col_3: PIN_29,
+    pub col_0: PIN_29,
+    pub col_1: PIN_28,
+    pub col_2: PIN_27,
+    pub col_3: PIN_26,
 }
 
 pub struct BallPeripherals {
@@ -71,10 +71,10 @@ pub fn init_peripherals() -> Peripherals {
             row_2: p.PIN_6,
             row_3: p.PIN_7,
             row_4: p.PIN_8,
-            col_0: p.PIN_26,
-            col_1: p.PIN_27,
-            col_2: p.PIN_28,
-            col_3: p.PIN_29,
+            col_0: p.PIN_29,
+            col_1: p.PIN_28,
+            col_2: p.PIN_27,
+            col_3: p.PIN_26,
         },
         ball: BallPeripherals {
             spi: BallSpiPeripherals {

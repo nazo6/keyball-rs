@@ -1,5 +1,5 @@
 use crate::{
-    constant::{COLS, ROWS},
+    constant::{COLS, LEFT_DETECT_JUMPER_KEY, ROWS},
     keyconfig::keymap::KEYMAP,
 };
 
@@ -15,6 +15,11 @@ impl Pressed {
         }
     }
     pub fn set_pressed(&mut self, state: bool, row: u8, col: u8) -> bool {
+        // In left side, this is always high.
+        if (row, col) == LEFT_DETECT_JUMPER_KEY {
+            return false;
+        }
+
         let prev = self.state[row as usize][col as usize];
         self.state[row as usize][col as usize] = state;
         state != prev

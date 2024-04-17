@@ -47,6 +47,26 @@ pub async fn start(
 
     DISPLAY.set_mouse(ball.is_some()).await;
 
+    #[cfg(feature = "force-master")]
+    {
+        join(
+            master::start(hid, ball, keyboard, s2m_rx, m2s_tx),
+            split::master_split_handle(split_peripherals, m2s_rx, s2m_tx),
+        )
+        .await;
+        return;
+    }
+
+    #[cfg(feature = "force-slave")]
+    {
+        join(
+            slave::start(ball, keyboard, m2s_rx, s2m_tx),
+            split::slave_split_handle(split_peripherals, m2s_tx, s2m_rx),
+        )
+        .await;
+        return;
+    }
+
     if is_master {
         join(
             master::start(hid, ball, keyboard, s2m_rx, m2s_tx),
