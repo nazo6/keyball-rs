@@ -1,10 +1,13 @@
-use crate::constant::{SCAN_COLS, SCAN_ROWS};
+use crate::constant::{LEFT_DETECT_JUMPER_KEY, SCAN_COLS, SCAN_ROWS};
 use crate::device::gpio::{Flex, Pull};
 use crate::device::peripherals::KeyboardPeripherals;
+use crate::keyboard::pressed::Pressed;
 
-use self::pressed::Pressed;
-
-pub mod pressed;
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Hand {
+    Left,
+    Right,
+}
 
 pub struct Keyboard<'a> {
     rows: [Flex<'a>; SCAN_ROWS],
@@ -27,6 +30,28 @@ impl<'a> Keyboard<'a> {
                 Flex::new(p.col_2),
                 Flex::new(p.col_3),
             ],
+        }
+    }
+
+    pub async fn get_hand(&mut self) -> Hand {
+        if LEFT_DETECT_JUMPER_KEY.1 >= 4 {
+            let row = &mut self.rows[LEFT_DETECT_JUMPER_KEY.0 as usize];
+            let col = &mut self.cols[(LEFT_DETECT_JUMPER_KEY.1 - 3) as usize];
+
+            col.set_as_input();
+            col.set_pull(Pull::Down);
+
+            row.set_as_output();
+            row.set_high();
+            row.wait_for_high().await;
+
+            if col.is_high() {
+                Hand::Left
+            } else {
+                Hand::Right
+            }
+        } else {
+            panic!("Invalid left detect jumper config");
         }
     }
 

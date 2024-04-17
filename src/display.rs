@@ -2,7 +2,10 @@ use core::fmt::Write as _;
 
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, mutex::Mutex};
 
-use crate::{device::peripherals::DisplayPeripherals, driver::display::Oled};
+use crate::{
+    device::peripherals::DisplayPeripherals,
+    driver::{display::Oled, keyboard::Hand},
+};
 
 pub static DISPLAY: GlobalDisplay = GlobalDisplay::new();
 
@@ -12,8 +15,8 @@ pub struct DisplayState {
     pub mouse_available: Option<bool>,
     pub keyboard: [u8; 6],
     pub mouse: (i8, i8),
-    pub update_time: u64,
     pub tick: bool,
+    pub hand: Option<Hand>,
 }
 
 pub struct GlobalDisplay {
@@ -31,8 +34,8 @@ impl GlobalDisplay {
                 mouse_available: None,
                 keyboard: [0; 6],
                 mouse: (0, 0),
-                update_time: 0,
                 tick: false,
+                hand: None,
             }),
         }
     }
@@ -59,17 +62,17 @@ impl GlobalDisplay {
 
         let mut state = self.state.lock().await;
 
-        if state.tick {
-            write!(str, "/").unwrap();
-        } else {
-            write!(str, "\\").unwrap();
-        }
-
         if let Some(tick_s) = tick {
             write!(str, "{}", tick_s).unwrap();
             state.tick = !state.tick;
         } else {
             write!(str, " ").unwrap();
+        }
+
+        if state.tick {
+            write!(str, "/").unwrap();
+        } else {
+            write!(str, "\\").unwrap();
         }
 
         if let Some(master) = state.master {
@@ -92,8 +95,16 @@ impl GlobalDisplay {
             write!(str, "?").unwrap();
         }
 
+        if let Some(hand) = &state.hand {
+            match hand {
+                Hand::Right => write!(str, "r").unwrap(),
+                Hand::Left => write!(str, "l").unwrap(),
+            }
+        } else {
+            write!(str, "?").unwrap();
+        }
+
         write!(str, ":{},{}", state.mouse.0, state.mouse.1).unwrap();
-        write!(str, ":{}:", state.update_time).unwrap();
 
         if state.master.unwrap_or(false) {
             for key in state.keyboard.iter() {
@@ -135,8 +146,8 @@ impl GlobalDisplay {
         self.update(Some("p")).await;
     }
 
-    pub async fn set_update_time(&self, time: u64) {
-        self.state.lock().await.update_time = time;
-        self.update(None).await;
+    pub async fn set_hand(&self, hand: Hand) {
+        self.state.lock().await.hand.replace(hand);
+        self.update(Some("h")).await;
     }
 }

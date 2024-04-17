@@ -14,7 +14,7 @@ mod constant;
 mod device;
 mod display;
 mod driver;
-mod keyconfig;
+mod keyboard;
 mod task;
 mod usb;
 mod utils;

@@ -32,6 +32,8 @@ pub async fn master_split_handle(p: SplitPeripherals, m2s_rx: M2sRx<'_>, s2m_tx:
             Either::First(_) => {
                 let data = SlaveToMaster::from_bytes(&buf);
 
+                print!("r: {:?}", data);
+
                 let _ = s2m_tx.try_send(data);
             }
             Either::Second(send_data) => {

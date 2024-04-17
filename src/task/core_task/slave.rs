@@ -2,11 +2,11 @@ use embassy_futures::join::join;
 use embassy_time::Timer;
 
 use crate::{
+    constant::MIN_SCAN_INTERVAL,
     display::DISPLAY,
-    driver::{
-        ball::Ball,
-        keyboard::{pressed::Pressed, Keyboard},
-    },
+    driver::{ball::Ball, keyboard::Keyboard},
+    keyboard::pressed::Pressed,
+    utils::print,
 };
 
 use super::split::{M2sRx, S2mTx};
@@ -20,7 +20,9 @@ pub async fn start(
 ) {
     DISPLAY.set_master(false).await;
 
-    let mut pressed = Pressed::new();
+    let hand = keyboard.get_hand().await;
+    DISPLAY.set_hand(hand).await;
+    let mut pressed = Pressed::new(hand);
     loop {
         let start = embassy_time::Instant::now();
 
@@ -28,6 +30,7 @@ pub async fn start(
             async {
                 let changed = keyboard.scan_and_update(&mut pressed).await;
                 if changed {
+                    print!("p: {:?}", pressed);
                     let mut keys = [None; 6];
 
                     for (idx, (row, col)) in pressed.iter().enumerate() {
@@ -58,8 +61,9 @@ pub async fn start(
         )
         .await;
 
-        DISPLAY.set_update_time(start.elapsed().as_millis()).await;
-
-        Timer::after_millis(10).await;
+        let took = start.elapsed().as_millis();
+        if took < MIN_SCAN_INTERVAL {
+            Timer::after_millis(MIN_SCAN_INTERVAL - took).await;
+        }
     }
 }

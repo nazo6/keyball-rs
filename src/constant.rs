@@ -11,7 +11,7 @@ pub const SCAN_COLS: usize = 4;
 pub const SCAN_ROWS: usize = 5;
 
 /// Time (msec) to wait for the next scan
-pub const MIN_SCAN_INTERVAL: u64 = 20;
+pub const MIN_SCAN_INTERVAL: u64 = 10;
 
 // Number of columns for one hand
 pub const COLS: usize = 7;
@@ -19,3 +19,5 @@ pub const COLS: usize = 7;
 pub const ROWS: usize = 5;
 
 pub const LEFT_DETECT_JUMPER_KEY: (u8, u8) = (2, 6);
+
+pub const LAYER_NUM: usize = 1;

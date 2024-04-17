@@ -1,15 +1,12 @@
 use embassy_futures::join::join;
 use embassy_time::Timer;
-use usbd_hid::descriptor::{KeyboardReport, MouseReport};
+use usbd_hid::descriptor::MouseReport;
 
 use crate::{
     constant::MIN_SCAN_INTERVAL,
     display::DISPLAY,
-    driver::{
-        ball::Ball,
-        keyboard::{pressed::Pressed, Keyboard},
-    },
-    keyconfig::keycodes::KC_NO,
+    driver::{ball::Ball, keyboard::Keyboard},
+    keyboard::{keymap::KEYMAP, pressed::Pressed, state::KeyboardState},
     usb::Hid,
 };
 
@@ -25,19 +22,17 @@ pub async fn start(
 ) {
     DISPLAY.set_master(true).await;
 
+    let hand = keyboard.get_hand().await;
+    DISPLAY.set_hand(hand).await;
+
     let (kb_reader, mut kb_writer) = hid.keyboard.split();
     let (_mouse_reader, mut mouse_writer) = hid.mouse.split();
 
     let mut empty_kb_sent = false;
-    let mut keyboard_state = Pressed::new();
     let mut slave_keys = [None; 6];
 
-    let mut kb_report = KeyboardReport {
-        keycodes: [0; 6],
-        leds: 0,
-        modifier: 0,
-        reserved: 0,
-    };
+    let mut pressed = Pressed::new(hand);
+    let mut kb_state = KeyboardState::new([KEYMAP]);
 
     loop {
         let start = embassy_time::Instant::now();
@@ -63,41 +58,14 @@ pub async fn start(
 
         join(
             async {
-                let mut keycodes = [0; 6];
-                let mut idx = 0;
+                keyboard.scan_and_update(&mut pressed).await;
+                let (report, empty) = kb_state.update_and_report(&pressed, &slave_keys);
 
-                for (row, col) in slave_keys.iter().flatten() {
-                    if let Some(kc) = keyboard_state.get_keycode(*row, *col) {
-                        if kc == KC_NO {
-                            continue;
-                        }
-                        if idx >= keycodes.len() {
-                            break;
-                        }
-                        keycodes[idx] = kc;
-                        idx += 1;
-                    }
-                }
-
-                keyboard.scan_and_update(&mut keyboard_state).await;
-
-                for (row, col) in keyboard_state.iter() {
-                    if let Some(kc) = keyboard_state.get_keycode(row, col) {
-                        if idx >= keycodes.len() {
-                            break;
-                        }
-                        keycodes[idx] = kc;
-                        idx += 1;
-                    }
-                }
-
-                if idx > 0 {
-                    kb_report.keycodes = keycodes;
-                    let _ = kb_writer.write_serialize(&kb_report).await;
+                if !empty {
+                    let _ = kb_writer.write_serialize(&report).await;
                     empty_kb_sent = false;
                 } else if !empty_kb_sent {
-                    kb_report.keycodes = [0; 6];
-                    let _ = kb_writer.write_serialize(&kb_report).await;
+                    let _ = kb_writer.write_serialize(&report).await;
                     empty_kb_sent = true;
                 }
             },
