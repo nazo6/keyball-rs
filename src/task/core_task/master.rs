@@ -1,5 +1,3 @@
-use core::fmt::Write as _;
-
 use embassy_futures::join::join;
 use embassy_time::Timer;
 use usbd_hid::descriptor::{KeyboardReport, MouseReport};

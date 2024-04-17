@@ -1,5 +1,5 @@
 use embassy_futures::yield_now;
-use embassy_rp::peripherals::{PIN_1, PIO0};
+use embassy_rp::peripherals::PIO0;
 use embassy_rp::pio::{Common, Config, Pin, Pio, ShiftDirection, StateMachine};
 use embassy_time::Timer;
 use fixed::traits::ToFixed;
@@ -7,6 +7,7 @@ use fixed::traits::ToFixed;
 use crate::constant::SPLIT_CLK_DIVIDER;
 use crate::device::interrupts::Irqs;
 use crate::device::peripherals::SplitPeripherals;
+use crate::utils::print;
 
 // Data structure
 //
@@ -24,7 +25,7 @@ fn rx_init<'a>(
         "set pindirs 0",
         ".wrap_target",
         "wait 0 pin 0",
-        "set x 9 [8]",
+        "set x 7 [10]",
         "bitloop:",
         "in pins 1 [6]",
         "jmp x-- bitloop",
@@ -54,14 +55,14 @@ fn tx_init<'a>(
         "set pindirs 0",
         ".wrap_target",
         "pull",
-        "set x 9 [2]",
+        "set x 7 [2]",
         "set pins 0",
         "set pindirs 1 [7]",
         "bitloop:",
         "out pins 1 [6]",
         "jmp x-- bitloop",
         "set pins 1",
-        "set pindirs 0 [2]",
+        "set pindirs 0 [5]",
         ".wrap"
     );
     let mut cfg = Config::default();
@@ -115,7 +116,7 @@ impl<'a> Communicate<'a> {
             yield_now().await;
         }
 
-        Timer::after_micros(100).await;
+        Timer::after_millis(5).await;
 
         self.tx_sm.set_enable(false);
         self.pin.set_drive_strength(embassy_rp::gpio::Drive::_2mA);
@@ -130,48 +131,28 @@ impl<'a> Communicate<'a> {
         self.tx_sm.set_enable(true);
     }
 
-    pub async fn recv_byte(&mut self) -> (bool, bool, u8) {
-        let mut data = self.rx_sm.rx().wait_pull().await;
-        let end_bit = data & 1;
-        data >>= 1;
-        let start_bit = data & 1;
-        data >>= 1;
-        (start_bit == 1, end_bit == 1, data as u8)
-    }
     pub async fn recv_data<const N: usize>(&mut self, buf: &mut [u8; N]) {
         let mut i = 0;
         while i < N {
-            let (start, end, data) = self.recv_byte().await;
+            let data = self.rx_sm.rx().wait_pull().await;
 
-            if i == 0 && !start {
-                continue;
-            }
-
-            buf[i] = data;
-
-            if end {
-                break;
-            }
+            buf[i] = data as u8;
 
             i += 1;
         }
+
+        print!("r:{:?}", buf);
     }
 
     pub async fn send_data<const N: usize>(&mut self, buf: &[u8]) {
         self.enter_tx().await;
 
-        for (i, data) in buf.iter().enumerate() {
-            let mut data = (*data as u32) << 24;
-
-            if i == 0 {
-                data |= 1 << 23;
-            }
-            if i == buf.len() - 1 {
-                data |= 1 << 22;
-            }
-
+        for data in buf.iter() {
+            let data = (*data as u32) << 24;
             self.tx_sm.tx().wait_push(data).await;
         }
+
+        print!("s:{:?}", buf);
 
         self.enter_rx().await;
     }

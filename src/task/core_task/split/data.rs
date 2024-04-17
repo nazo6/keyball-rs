@@ -14,6 +14,7 @@ macro_rules! impl_serde {
                 serializer.into_inner()
             }
 
+            // TODO: 入力値チェック
             pub fn from_bytes(data: &[u8]) -> Self {
                 let archived = unsafe { rkyv::archived_value::<Self>(data, 0) };
                 archived.deserialize(&mut rkyv::Infallible).unwrap()

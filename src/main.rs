@@ -17,6 +17,7 @@ mod driver;
 mod keyconfig;
 mod task;
 mod usb;
+mod utils;
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
