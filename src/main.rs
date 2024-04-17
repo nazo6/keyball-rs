@@ -6,13 +6,9 @@ use core::panic::PanicInfo;
 
 use defmt_rtt as _;
 use device::peripherals::init_peripherals;
-use device::usb::create_usb_driver;
 use display::DISPLAY;
 use embassy_executor::Spawner;
-use embassy_usb::class::hid::State;
-use usb::device_handler::UsbDeviceHandler;
-use usb::request_handler::UsbRequestHandler;
-use usb::UsbOpts;
+use task::TaskPeripherals;
 
 mod constant;
 mod device;
@@ -26,34 +22,16 @@ mod usb;
 async fn main(_spawner: Spawner) {
     let peripherals = init_peripherals();
 
-    unsafe { driver::double_tap::check_double_tap_bootloader(500).await };
+    driver::double_tap::check_double_tap(500).await;
 
     DISPLAY.init(peripherals.display).await;
 
-    let mut device_handler = UsbDeviceHandler::new();
-
-    // Usb keyboard and mouse
-    let opts = UsbOpts {
-        driver: create_usb_driver(peripherals.usb),
-        config_descriptor: &mut [0; 256],
-        bos_descriptor: &mut [0; 256],
-        msos_descriptor: &mut [0; 256],
-        control_buf: &mut [0; 64],
-        request_handler: &UsbRequestHandler {},
-        device_handler: &mut device_handler,
-        state_kb: &mut State::new(),
-        state_mouse: &mut State::new(),
-    };
-    let usb = usb::create_usb(opts);
-
-    task::start(task::TaskResource {
-        usb,
-        peripherals: task::TaskPeripherals {
-            keyboard: peripherals.keyboard,
-            ball: peripherals.ball,
-            split: peripherals.split,
-            led: peripherals.led,
-        },
+    task::start(TaskPeripherals {
+        ball: peripherals.ball,
+        keyboard: peripherals.keyboard,
+        split: peripherals.split,
+        led: peripherals.led,
+        usb: peripherals.usb,
     })
     .await;
 }
