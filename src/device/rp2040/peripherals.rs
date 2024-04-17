@@ -44,7 +44,6 @@ pub struct BallSpiPeripherals {
 pub struct SplitPeripherals {
     pub pio: PIO0,
     pub data_pin: PIN_1,
-    pub dma: DMA_CH3,
 }
 
 pub struct LedPeripherals {
@@ -91,7 +90,6 @@ pub fn init_peripherals() -> Peripherals {
         split: SplitPeripherals {
             pio: p.PIO0,
             data_pin: p.PIN_1,
-            dma: p.DMA_CH3,
         },
         led: LedPeripherals {
             pio: p.PIO1,

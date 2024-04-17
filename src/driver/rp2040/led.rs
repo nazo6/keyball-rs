@@ -1,25 +1,29 @@
-use embassy_rp::dma::{AnyChannel, Channel};
-use embassy_rp::pio::{
-    Common, Config, FifoJoin, Instance, PioPin, ShiftConfig, ShiftDirection, StateMachine,
-};
+use embassy_rp::dma::AnyChannel;
+use embassy_rp::peripherals::PIO1;
+use embassy_rp::pio::{Config, FifoJoin, Pio, ShiftConfig, ShiftDirection, StateMachine};
 use embassy_rp::{clocks, into_ref, Peripheral, PeripheralRef};
 use embassy_time::Timer;
 use fixed::types::U24F8;
 use fixed_macro::fixed;
 use smart_leds::RGB8;
 
-pub struct Ws2812<'d, P: Instance, const S: usize, const N: usize> {
+use crate::device::interrupts::Irqs;
+use crate::device::peripherals::LedPeripherals;
+
+pub struct Ws2812<'d> {
     dma: PeripheralRef<'d, AnyChannel>,
-    sm: StateMachine<'d, P, S>,
+    sm: StateMachine<'d, PIO1, 0>,
 }
 
-impl<'d, P: Instance, const S: usize, const N: usize> Ws2812<'d, P, S, N> {
-    pub fn new(
-        pio: &mut Common<'d, P>,
-        mut sm: StateMachine<'d, P, S>,
-        dma: impl Peripheral<P = impl Channel> + 'd,
-        pin: impl PioPin,
-    ) -> Self {
+impl<'d> Ws2812<'d> {
+    pub fn new(p: LedPeripherals) -> Self {
+        let Pio {
+            common, mut sm0, ..
+        } = Pio::new(p.pio, Irqs);
+
+        let mut pio = common;
+        let dma = p.dma;
+
         into_ref!(dma);
 
         // Setup sm0
@@ -53,7 +57,7 @@ impl<'d, P: Instance, const S: usize, const N: usize> Ws2812<'d, P, S, N> {
         let mut cfg = Config::default();
 
         // Pin config
-        let out_pin = pio.make_pio_pin(pin);
+        let out_pin = pio.make_pio_pin(p.led_pin);
         cfg.set_out_pins(&[&out_pin]);
         cfg.set_set_pins(&[&out_pin]);
 
@@ -74,16 +78,16 @@ impl<'d, P: Instance, const S: usize, const N: usize> Ws2812<'d, P, S, N> {
             direction: ShiftDirection::Left,
         };
 
-        sm.set_config(&cfg);
-        sm.set_enable(true);
+        sm0.set_config(&cfg);
+        sm0.set_enable(true);
 
         Self {
             dma: dma.map_into(),
-            sm,
+            sm: sm0,
         }
     }
 
-    pub async fn write(&mut self, colors: &[RGB8; N]) {
+    pub async fn write<const N: usize>(&mut self, colors: &[RGB8; N]) {
         // Precompute the word bytes from the colors
         let mut words = [0u32; N];
         for i in 0..N {

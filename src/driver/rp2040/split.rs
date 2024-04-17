@@ -5,6 +5,8 @@ use embassy_time::Timer;
 use fixed::traits::ToFixed;
 
 use crate::constant::SPLIT_CLK_DIVIDER;
+use crate::device::interrupts::Irqs;
+use crate::device::peripherals::SplitPeripherals;
 
 // Data structure
 //
@@ -84,12 +86,14 @@ pub struct Communicate<'a> {
 }
 
 impl<'a> Communicate<'a> {
-    pub async fn new<'b: 'a>(pio: Pio<'b, PIO0>, data_pin: PIN_1) -> Communicate<'a> {
+    pub async fn new<'b: 'a>(p: SplitPeripherals) -> Communicate<'a> {
+        let pio = Pio::new(p.pio, Irqs);
+
         let mut common = pio.common;
         let mut sm0 = pio.sm0;
         let mut sm1 = pio.sm1;
 
-        let mut out_pin = common.make_pio_pin(data_pin);
+        let mut out_pin = common.make_pio_pin(p.data_pin);
         out_pin.set_pull(embassy_rp::gpio::Pull::Up);
 
         rx_init(&mut common, &mut sm0, &out_pin);

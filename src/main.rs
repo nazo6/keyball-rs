@@ -17,7 +17,6 @@ use usb::UsbOpts;
 mod constant;
 mod device;
 mod display;
-mod double_reset;
 mod driver;
 mod keyconfig;
 mod task;
@@ -27,7 +26,7 @@ mod usb;
 async fn main(_spawner: Spawner) {
     let peripherals = init_peripherals();
 
-    unsafe { double_reset::check_double_tap_bootloader(500).await };
+    unsafe { driver::double_tap::check_double_tap_bootloader(500).await };
 
     DISPLAY.init(peripherals.display).await;
 
