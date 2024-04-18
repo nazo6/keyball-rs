@@ -61,21 +61,18 @@ impl<'a> Keyboard<'a> {
 
         // col -> row scan
         {
-            for row in self.rows.iter_mut() {
-                row.set_as_input();
-                row.set_pull(Pull::Down);
-            }
-            for col in self.cols.iter_mut() {
-                col.set_as_output();
-                col.set_low();
-            }
-
             for (j, col) in self.cols.iter_mut().enumerate() {
-                // col->rowスキャンではcol=3は存在しない
                 if j == 3 {
                     continue;
                 }
 
+                for row in self.rows.iter_mut() {
+                    row.set_as_input();
+                    row.set_pull(Pull::Down);
+                }
+
+                col.set_as_output();
+                col.set_low();
                 col.set_high();
                 col.wait_for_high().await;
 
@@ -90,22 +87,19 @@ impl<'a> Keyboard<'a> {
 
         // row -> col scan
         {
-            for row in self.rows.iter_mut() {
+            for (i, row) in self.rows.iter_mut().enumerate() {
+                for col in self.cols.iter_mut() {
+                    col.set_as_input();
+                    col.set_pull(Pull::Down);
+                }
+
                 row.set_as_output();
                 row.set_low();
-            }
-            for col in self.cols.iter_mut() {
-                col.set_as_input();
-                col.set_pull(Pull::Down);
-            }
-
-            for (i, row) in self.rows.iter_mut().enumerate() {
                 row.set_high();
                 row.wait_for_high().await;
 
-                for (j, col) in self.cols.iter().enumerate() {
-                    let j = j + 3;
-                    changed |= state.set_pressed(col.is_high(), i as u8, j as u8);
+                for (j, col) in self.cols.iter_mut().enumerate() {
+                    changed |= state.set_pressed(col.is_high(), i as u8, (j + 3) as u8);
                 }
 
                 row.set_low();

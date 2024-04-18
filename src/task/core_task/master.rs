@@ -33,7 +33,7 @@ pub async fn start(
     let mut slave_keys = [None; 6];
 
     let mut pressed = Pressed::new(hand);
-    let mut kb_state = KeyboardState::new([KEYMAP]);
+    let mut kb_state = KeyboardState::new(KEYMAP);
 
     loop {
         let start = embassy_time::Instant::now();
@@ -57,18 +57,10 @@ pub async fn start(
             }
         }
 
-        join(
+        let (key_status, mouse_status) = join(
             async {
                 keyboard.scan_and_update(&mut pressed).await;
-                let (report, empty) = kb_state.update_and_report(&pressed, &slave_keys);
-
-                if !empty {
-                    let _ = kb_writer.write_serialize(&report).await;
-                    empty_kb_sent = false;
-                } else if !empty_kb_sent {
-                    let _ = kb_writer.write_serialize(&report).await;
-                    empty_kb_sent = true;
-                }
+                kb_state.update_and_report(&pressed, &slave_keys)
             },
             async {
                 if let Some(ball) = &mut ball {
@@ -81,19 +73,40 @@ pub async fn start(
                         }
                     }
                 }
+                mouse
+            },
+        )
+        .await;
 
-                if let Some(mouse) = mouse {
-                    let _ = mouse_writer
-                        .write_serialize(&MouseReport {
-                            buttons: 0,
-                            // Mouse x and y are swapped
-                            x: mouse.1,
-                            y: mouse.0,
-                            wheel: 0,
-                            pan: 0,
-                        })
-                        .await;
+        join(
+            async {
+                if !key_status.empty_keyboard_report {
+                    let _ = kb_writer.write_serialize(&key_status.keyboard_report).await;
+                    empty_kb_sent = false;
+                } else if !empty_kb_sent {
+                    let _ = kb_writer.write_serialize(&key_status.keyboard_report).await;
+                    empty_kb_sent = true;
                 }
+            },
+            async {
+                let mut mouse_report = MouseReport {
+                    x: 0,
+                    y: 0,
+                    buttons: 0,
+                    pan: 0,
+                    wheel: 0,
+                };
+
+                if let Some((x, y)) = mouse_status {
+                    mouse_report.x = y;
+                    mouse_report.y = x;
+                } else if key_status.mouse_button == 0 {
+                    return;
+                }
+
+                mouse_report.buttons = key_status.mouse_button;
+
+                let _ = mouse_writer.write_serialize(&mouse_report).await;
             },
         )
         .await;

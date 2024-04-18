@@ -20,4 +20,4 @@ pub const ROWS: usize = 5;
 
 pub const LEFT_DETECT_JUMPER_KEY: (u8, u8) = (2, 6);
 
-pub const LAYER_NUM: usize = 1;
+pub const LAYER_NUM: usize = 2;
