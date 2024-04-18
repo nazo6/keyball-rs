@@ -43,10 +43,11 @@ pub async fn start(
     let m2s_rx = m2s_chan.receiver();
 
     let ball = ball::Ball::init(ball_peripherals).await.ok();
-    let keyboard = keyboard::Keyboard::new(keyboard_peripherals);
+    let keyboard_scanner = keyboard::KeyboardScanner::new(keyboard_peripherals).await;
 
     DISPLAY.clear().await;
     DISPLAY.set_mouse(ball.is_some()).await;
+    DISPLAY.set_hand(keyboard_scanner.hand).await;
 
     #[cfg(feature = "force-master")]
     {
@@ -70,13 +71,13 @@ pub async fn start(
 
     if is_master {
         join(
-            master::start(hid, ball, keyboard, s2m_rx, m2s_tx),
+            master::start(hid, ball, keyboard_scanner, s2m_rx, m2s_tx),
             split::master_split_handle(split_peripherals, m2s_rx, s2m_tx),
         )
         .await;
     } else {
         join(
-            slave::start(ball, keyboard, m2s_rx, s2m_tx),
+            slave::start(ball, keyboard_scanner, m2s_rx, s2m_tx),
             split::slave_split_handle(split_peripherals, m2s_tx, s2m_rx),
         )
         .await;

@@ -2,7 +2,7 @@ use rkyv::ser::serializers::BufferSerializer;
 use rkyv::ser::Serializer;
 use rkyv::{AlignedBytes, Archive, Deserialize, Serialize};
 
-pub const MAX_DATA_SIZE: usize = 20;
+pub const MAX_DATA_SIZE: usize = 3;
 
 macro_rules! impl_serde {
     ($s:ident) => {
@@ -35,7 +35,8 @@ impl_serde!(MasterToSlave);
 #[derive(Archive, Deserialize, Serialize, Debug)]
 // #[archive(check_bytes)]
 pub enum SlaveToMaster {
-    Pressed { keys: [Option<(u8, u8)>; 6] },
+    Pressed(u8, u8),
+    Released(u8, u8),
     Mouse { x: i8, y: i8 },
     Message(u8),
 }

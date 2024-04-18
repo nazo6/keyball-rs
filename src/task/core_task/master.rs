@@ -5,7 +5,7 @@ use usbd_hid::descriptor::MouseReport;
 use crate::{
     constant::MIN_SCAN_INTERVAL,
     display::DISPLAY,
-    driver::{ball::Ball, keyboard::Keyboard},
+    driver::{ball::Ball, keyboard::KeyboardScanner},
     keyboard::{keymap::KEYMAP, pressed::Pressed, state::KeyboardState},
     usb::Hid,
 };
@@ -16,14 +16,11 @@ use super::split::{M2sTx, S2mRx, SlaveToMaster};
 pub async fn start(
     hid: Hid<'_>,
     mut ball: Option<Ball<'_>>,
-    mut keyboard: Keyboard<'_>,
+    mut scanner: KeyboardScanner<'_>,
     s2m_rx: S2mRx<'_>,
     m2s_tx: M2sTx<'_>,
 ) {
     DISPLAY.set_master(true).await;
-
-    let hand = keyboard.get_hand().await;
-    DISPLAY.set_hand(hand).await;
 
     let (_kb_reader, mut kb_writer) = hid.keyboard.split();
     let (_mouse_reader, mut mouse_writer) = hid.mouse.split();
@@ -31,10 +28,10 @@ pub async fn start(
     let mut empty_kb_sent = false;
     let mut empty_mouse_sent = false;
 
-    let mut slave_keys = [None; 6];
+    let mut master_pressed = Pressed::new();
+    let mut slave_pressed = Pressed::new();
 
-    let mut pressed = Pressed::new(hand);
-    let mut kb_state = KeyboardState::new(KEYMAP);
+    let mut kb_state = KeyboardState::new(KEYMAP, scanner.hand);
 
     loop {
         let start = embassy_time::Instant::now();
@@ -43,8 +40,11 @@ pub async fn start(
 
         while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
             match cmd_from_slave {
-                SlaveToMaster::Pressed { keys } => {
-                    slave_keys = keys;
+                SlaveToMaster::Pressed(row, col) => {
+                    slave_pressed.set_pressed(true, row, col);
+                }
+                SlaveToMaster::Released(row, col) => {
+                    slave_pressed.set_pressed(false, row, col);
                 }
                 SlaveToMaster::Mouse { x, y } => {
                     if let Some(mouse) = &mut mouse {
@@ -60,8 +60,8 @@ pub async fn start(
 
         let (key_status, mouse_status) = join(
             async {
-                keyboard.scan_and_update(&mut pressed).await;
-                kb_state.update_and_report(&pressed, &slave_keys)
+                scanner.scan_and_update(&mut master_pressed).await;
+                kb_state.update_and_report(&master_pressed, &slave_pressed)
             },
             async {
                 if let Some(ball) = &mut ball {
@@ -99,6 +99,7 @@ pub async fn start(
                 };
 
                 if let Some((x, y)) = mouse_status {
+                    // なんか知らんけど逆
                     mouse_report.x = y;
                     mouse_report.y = x;
                 } else if key_status.mouse_button == 0 {
@@ -127,7 +128,6 @@ pub async fn start(
         .await;
 
         let took = start.elapsed().as_millis();
-        crate::utils::print!("{}ms", took);
         if took < MIN_SCAN_INTERVAL {
             Timer::after_millis(MIN_SCAN_INTERVAL - took).await;
         }

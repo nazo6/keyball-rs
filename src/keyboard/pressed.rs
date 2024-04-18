@@ -1,42 +1,25 @@
-//! One-hand keyboard pressed state.
-
 use core::fmt::{self, Formatter};
 
-use crate::{
-    constant::{COLS, LEFT_DETECT_JUMPER_KEY, ROWS},
-    driver::keyboard::Hand,
-};
+use crate::constant::{COLS, ROWS};
 
-// Struct to store the state of the keys
+/// この構造体には、キーが押下されているかどうかの情報が格納される。
+/// NOTE:
+/// この構造体は「生の」COLを受け取るし、返す。つまり、手によるボードの反転を考慮するのはこの構造体の責務ではない。
 pub struct Pressed {
     /// 判定された状態のcolを使う
     pub state: [[bool; COLS]; ROWS],
-    /// 右手ではcolが反転する。
-    pub hand: Hand,
 }
 
 impl Pressed {
-    pub fn new(hand: Hand) -> Self {
+    pub fn new() -> Self {
         Self {
             state: [[false; COLS]; ROWS],
-            hand,
         }
     }
     /// Panic safety: row < ROWS, col < COLSでなければならない
-    pub fn set_pressed(&mut self, state: bool, row: u8, col_raw: u8) -> bool {
-        // In left side, this is always high.
-        if (row, col_raw) == LEFT_DETECT_JUMPER_KEY {
-            return false;
-        }
-
-        let col = if self.hand == Hand::Right {
-            COLS - 1 - col_raw as usize
-        } else {
-            col_raw as usize
-        };
-
-        let prev = self.state[row as usize][col];
-        self.state[row as usize][col] = state;
+    pub fn set_pressed(&mut self, state: bool, row: u8, col: u8) -> bool {
+        let prev = self.state[row as usize][col as usize];
+        self.state[row as usize][col as usize] = state;
         state != prev
     }
 }
@@ -68,11 +51,7 @@ impl Iterator for PressedIter<'_> {
                     self.idx_col = j + 1;
 
                     let row = i as u8;
-                    let col = if self.pressed.hand == Hand::Right {
-                        (j + COLS) as u8
-                    } else {
-                        j as u8
-                    };
+                    let col = j as u8;
 
                     return Some((row, col));
                 }

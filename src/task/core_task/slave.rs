@@ -4,44 +4,45 @@ use embassy_time::Timer;
 use crate::{
     constant::MIN_SCAN_INTERVAL,
     display::DISPLAY,
-    driver::{ball::Ball, keyboard::Keyboard},
+    driver::{ball::Ball, keyboard::KeyboardScanner},
     keyboard::pressed::Pressed,
-    utils::print,
 };
 
-use super::split::{M2sRx, S2mTx};
+use super::split::{M2sRx, S2mTx, SlaveToMaster};
 
 /// Slave-side main task.
 pub async fn start(
     mut ball: Option<Ball<'_>>,
-    mut keyboard: Keyboard<'_>,
+    mut scanner: KeyboardScanner<'_>,
     m2s_rx: M2sRx<'_>,
     s2m_tx: S2mTx<'_>,
 ) {
     DISPLAY.set_master(false).await;
 
-    let hand = keyboard.get_hand().await;
-    DISPLAY.set_hand(hand).await;
-    let mut pressed = Pressed::new(hand);
+    let mut pressed = Pressed::new();
     loop {
         let start = embassy_time::Instant::now();
 
         join(
             async {
-                let changed = keyboard.scan_and_update(&mut pressed).await;
-                if changed {
-                    let mut keys = [None; 6];
-
-                    for (idx, (row, col)) in pressed.iter().enumerate() {
-                        if idx >= keys.len() {
-                            break;
+                let mut changes = heapless::Vec::<SlaveToMaster, 6>::new();
+                scanner
+                    .scan_and_update_with_cb(&mut pressed, |row, col, state| {
+                        if state {
+                            changes
+                                .push(SlaveToMaster::Pressed(row as u8, col as u8))
+                                .ok();
+                        } else {
+                            changes
+                                .push(SlaveToMaster::Released(row as u8, col as u8))
+                                .ok();
                         }
-                        keys[idx] = Some((row, col));
-                    }
+                    })
+                    .await;
 
-                    s2m_tx
-                        .send(super::split::SlaveToMaster::Pressed { keys })
-                        .await;
+                for change in changes {
+                    crate::utils::print!("S2M: {:?}\n", change);
+                    s2m_tx.send(change).await;
                 }
             },
             async {

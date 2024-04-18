@@ -1,6 +1,9 @@
 use usbd_hid::descriptor::KeyboardReport;
 
-use crate::constant::{COLS, LAYER_NUM, ROWS};
+use crate::{
+    constant::{COLS, LAYER_NUM, ROWS},
+    driver::keyboard::Hand,
+};
 
 use super::{
     keycode::{self, layer, Keycode},
@@ -19,13 +22,15 @@ pub struct KeyStateReport {
 pub struct KeyboardState {
     layers: [Layer; LAYER_NUM],
     layer_active: [bool; LAYER_NUM],
+    master_hand: Hand,
 }
 
 impl KeyboardState {
-    pub fn new(layers: [Layer; LAYER_NUM]) -> Self {
+    pub fn new(layers: [Layer; LAYER_NUM], master_hand: Hand) -> Self {
         Self {
             layers,
             layer_active: [false; LAYER_NUM],
+            master_hand,
         }
     }
 
@@ -34,7 +39,7 @@ impl KeyboardState {
     pub fn update_and_report(
         &mut self,
         master_pressed: &Pressed,
-        slave_pressed: &[Option<(u8, u8)>; 6],
+        slave_pressed: &Pressed,
     ) -> KeyStateReport {
         let mut keycodes = [0; 6];
         let mut keycodes_idx = 0;
@@ -73,12 +78,25 @@ impl KeyboardState {
             }
         };
 
+        // COLSを足したり引いたりしてるのは、右手側ではcolが逆転しており、
+        // さらにkeymap配列で+COLSした位置にあるため。
+
         for (row, col) in master_pressed.iter() {
+            let col = if self.master_hand == Hand::Right {
+                ((COLS - 1) as u8 - col) + COLS as u8
+            } else {
+                col
+            };
             handle_kc(self.get_keycode(row, col), &mut self.layer_active);
         }
 
-        for (row, col) in slave_pressed.iter().flatten() {
-            handle_kc(self.get_keycode(*row, *col), &mut self.layer_active);
+        for (row, col) in slave_pressed.iter() {
+            let col = if self.master_hand == Hand::Right {
+                col
+            } else {
+                ((COLS - 1) as u8 - col) + COLS as u8
+            };
+            handle_kc(self.get_keycode(row, col), &mut self.layer_active);
         }
 
         if keycodes_idx > 0 || keyboard_modifier != 0 {
@@ -114,4 +132,9 @@ impl KeyboardState {
 
         None
     }
+}
+
+pub struct KeyStateReporter<'a> {
+    pub kb_state: &'a mut KeyboardState,
+    pub key_status: KeyStateReport,
 }
