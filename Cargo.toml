@@ -41,7 +41,7 @@ cortex-m = { version = "0.7.6", features = ["inline-asm"] }
 cortex-m-rt = "0.7.0"
 
 usbd-hid = "0.7.0"
-ssd1306 = "0.8.4"
+ssd1306 = { git = "https://github.com/bugadani/ssd1306", branch = "ehal1" }
 embedded-graphics = "0.8.1"
 heapless = "0.8.0"
 embassy-sync = "0.5.0"

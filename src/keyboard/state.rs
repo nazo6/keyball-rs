@@ -13,7 +13,7 @@ pub struct KeyStateReport {
     pub keyboard_report: KeyboardReport,
     pub empty_keyboard_report: bool,
     pub mouse_button: u8,
-    pub highest_later: usize,
+    pub highest_layer: usize,
 }
 
 pub struct KeyboardState {
@@ -62,9 +62,12 @@ impl KeyboardState {
                     Keycode::Special(_) => {}
                     Keycode::Layer(layer_cmd) => match layer_cmd {
                         layer::Layer::Move(layer) => {
+                            (0..LAYER_NUM).for_each(|i| {
+                                layer_active[i] = false;
+                            });
                             layer_active[layer] = true;
                         }
-                        _ => {}
+                        layer::Layer::Toggle(..) => {}
                     },
                 }
             }
@@ -91,7 +94,7 @@ impl KeyboardState {
             },
             empty_keyboard_report,
             mouse_button,
-            highest_later: self.layer_active.iter().rposition(|&x| x).unwrap_or(0),
+            highest_layer: self.layer_active.iter().rposition(|&x| x).unwrap_or(0),
         }
     }
 

@@ -26,6 +26,7 @@ async fn main(_spawner: Spawner) {
     driver::double_tap::check_double_tap(500).await;
 
     DISPLAY.init(peripherals.display).await;
+    utils::print!("Intializing...");
 
     task::start(TaskPeripherals {
         ball: peripherals.ball,

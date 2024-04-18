@@ -3,26 +3,29 @@ pub mod peripherals;
 pub mod interrupts {
     use embassy_rp::{
         bind_interrupts,
-        peripherals::{PIO0, PIO1, USB},
+        peripherals::{I2C1, PIO0, PIO1, USB},
     };
 
     bind_interrupts!(pub struct Irqs {
         PIO0_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO0>;
         PIO1_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO1>;
         USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
+        I2C1_IRQ => embassy_rp::i2c::InterruptHandler<I2C1>;
     });
 }
 
 pub mod i2c_display {
-    use embassy_rp::{i2c::Blocking, peripherals::I2C1};
+    use embassy_rp::{i2c::Async, peripherals::I2C1};
 
-    pub type I2C<'a> = embassy_rp::i2c::I2c<'a, I2C1, Blocking>;
+    use super::interrupts::Irqs;
+
+    pub type I2C<'a> = embassy_rp::i2c::I2c<'a, I2C1, Async>;
 
     pub fn create_i2c<'a>(p: super::peripherals::DisplayPeripherals, frequency: u32) -> I2C<'a> {
         let mut i2c_config = embassy_rp::i2c::Config::default();
         i2c_config.frequency = frequency;
 
-        embassy_rp::i2c::I2c::new_blocking(p.i2c, p.scl, p.sda, i2c_config)
+        embassy_rp::i2c::I2c::new_async(p.i2c, p.scl, p.sda, Irqs, i2c_config)
     }
 }
 

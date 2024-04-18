@@ -1,4 +1,4 @@
-use embassy_futures::join::join;
+use embassy_futures::join::{join, join3};
 use embassy_time::Timer;
 use usbd_hid::descriptor::MouseReport;
 
@@ -8,7 +8,6 @@ use crate::{
     driver::{ball::Ball, keyboard::Keyboard},
     keyboard::{keymap::KEYMAP, pressed::Pressed, state::KeyboardState},
     usb::Hid,
-    utils::print,
 };
 
 use super::split::{M2sTx, S2mRx, SlaveToMaster};
@@ -26,10 +25,12 @@ pub async fn start(
     let hand = keyboard.get_hand().await;
     DISPLAY.set_hand(hand).await;
 
-    let (kb_reader, mut kb_writer) = hid.keyboard.split();
+    let (_kb_reader, mut kb_writer) = hid.keyboard.split();
     let (_mouse_reader, mut mouse_writer) = hid.mouse.split();
 
     let mut empty_kb_sent = false;
+    let mut empty_mouse_sent = false;
+
     let mut slave_keys = [None; 6];
 
     let mut pressed = Pressed::new(hand);
@@ -40,7 +41,7 @@ pub async fn start(
 
         let mut mouse: Option<(i8, i8)> = None;
 
-        if let Ok(cmd_from_slave) = s2m_rx.try_receive() {
+        while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
             match cmd_from_slave {
                 SlaveToMaster::Pressed { keys } => {
                     slave_keys = keys;
@@ -78,7 +79,7 @@ pub async fn start(
         )
         .await;
 
-        join(
+        join3(
             async {
                 if !key_status.empty_keyboard_report {
                     let _ = kb_writer.write_serialize(&key_status.keyboard_report).await;
@@ -101,17 +102,32 @@ pub async fn start(
                     mouse_report.x = y;
                     mouse_report.y = x;
                 } else if key_status.mouse_button == 0 {
-                    return;
+                    if !empty_mouse_sent {
+                        let _ = mouse_writer.write_serialize(&mouse_report).await;
+                        empty_mouse_sent = true;
+                    } else {
+                        return;
+                    }
                 }
 
                 mouse_report.buttons = key_status.mouse_button;
 
                 let _ = mouse_writer.write_serialize(&mouse_report).await;
+                empty_mouse_sent = false;
+            },
+            async {
+                if let Some((x, y)) = mouse_status {
+                    crate::DISPLAY.set_mouse_pos(x, y).await;
+                }
+                crate::DISPLAY
+                    .set_highest_layer(key_status.highest_layer as u8)
+                    .await;
             },
         )
         .await;
 
         let took = start.elapsed().as_millis();
+        crate::utils::print!("{}ms", took);
         if took < MIN_SCAN_INTERVAL {
             Timer::after_millis(MIN_SCAN_INTERVAL - took).await;
         }

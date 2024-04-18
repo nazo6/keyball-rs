@@ -1,4 +1,7 @@
 macro_rules! print {
+    ($lit:literal) => {{
+        $crate::display::DISPLAY.set_message($lit).await;
+    }};
     ($($arg:tt)*) => {{
         use core::fmt::Write;
 

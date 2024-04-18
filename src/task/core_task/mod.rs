@@ -45,6 +45,7 @@ pub async fn start(
     let ball = ball::Ball::init(ball_peripherals).await.ok();
     let keyboard = keyboard::Keyboard::new(keyboard_peripherals);
 
+    DISPLAY.clear().await;
     DISPLAY.set_mouse(ball.is_some()).await;
 
     #[cfg(feature = "force-master")]
