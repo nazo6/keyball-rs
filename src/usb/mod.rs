@@ -1,3 +1,5 @@
+use core::sync::atomic::AtomicBool;
+
 use defmt_rtt as _;
 use embassy_usb::class::hid::{HidReaderWriter, RequestHandler, State};
 use embassy_usb::{Builder, Config, Handler, UsbDevice};
@@ -30,6 +32,8 @@ pub struct UsbResource<'a> {
     pub hid: Hid<'a>,
 }
 
+pub static SUSPENDED: AtomicBool = AtomicBool::new(false);
+
 pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> UsbResource {
     // Create embassy-usb Config
     let mut config = Config::new(0xc0de, 0xcafe);
@@ -38,6 +42,7 @@ pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> Usb
     config.serial_number = Some("12345678");
     config.max_power = 100;
     config.max_packet_size_0 = 64;
+    config.supports_remote_wakeup = true;
 
     let mut builder = Builder::new(
         opts.driver,

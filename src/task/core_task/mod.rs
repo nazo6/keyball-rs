@@ -12,7 +12,10 @@ use crate::{
     usb::Hid,
 };
 
-use super::{led_task::LedCtrlTx, BallPeripherals, KeyboardPeripherals, SplitPeripherals};
+use super::{
+    led_task::LedCtrlTx, usb_task::RemoteWakeupSignal, BallPeripherals, KeyboardPeripherals,
+    SplitPeripherals,
+};
 
 mod master;
 mod slave;
@@ -25,6 +28,7 @@ pub async fn start(
     split_peripherals: SplitPeripherals,
     led_controller: LedCtrlTx<'_>,
     mut hid: Hid<'_>,
+    remote_wakeup_signal: &RemoteWakeupSignal,
 ) {
     // VBUS detection is not available for ProMicro RP2040, so USB communication is used to determine master/slave.
     // This is same as SPLIT_USB_DETECT in QMK.
@@ -45,7 +49,6 @@ pub async fn start(
     let ball = ball::Ball::init(ball_peripherals).await.ok();
     let keyboard_scanner = keyboard::KeyboardScanner::new(keyboard_peripherals).await;
 
-    DISPLAY.clear().await;
     DISPLAY.set_mouse(ball.is_some()).await;
     DISPLAY.set_hand(keyboard_scanner.hand).await;
 
@@ -71,7 +74,14 @@ pub async fn start(
 
     if is_master {
         join(
-            master::start(hid, ball, keyboard_scanner, s2m_rx, m2s_tx),
+            master::start(
+                ball,
+                keyboard_scanner,
+                s2m_rx,
+                m2s_tx,
+                hid,
+                remote_wakeup_signal,
+            ),
             split::master_split_handle(split_peripherals, m2s_rx, s2m_tx),
         )
         .await;

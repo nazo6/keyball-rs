@@ -1,11 +1,15 @@
 use embassy_futures::join::join3;
-use embassy_sync::channel::Channel;
+use embassy_sync::{
+    blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, signal::Signal,
+};
 use embassy_usb::class::hid::State;
 
 use crate::{
     device::{peripherals::*, usb::create_usb_driver},
     usb::{device_handler::UsbDeviceHandler, request_handler::UsbRequestHandler, UsbOpts},
 };
+
+use self::usb_task::RemoteWakeupSignal;
 
 mod core_task;
 mod led_task;
@@ -25,6 +29,8 @@ pub async fn start(p: TaskPeripherals) {
     let led_ctrl_rx = led_ctrl_chan.receiver();
     let led_ctrl_tx = led_ctrl_chan.sender();
 
+    let remote_wakeup_signal: RemoteWakeupSignal = Signal::new();
+
     let mut device_handler = UsbDeviceHandler::new();
 
     // Usb keyboard and mouse
@@ -42,9 +48,16 @@ pub async fn start(p: TaskPeripherals) {
     let usb = crate::usb::create_usb(opts);
 
     join3(
-        core_task::start(p.ball, p.keyboard, p.split, led_ctrl_tx, usb.hid),
+        core_task::start(
+            p.ball,
+            p.keyboard,
+            p.split,
+            led_ctrl_tx,
+            usb.hid,
+            &remote_wakeup_signal,
+        ),
         led_task::start(p.led, led_ctrl_rx),
-        usb_task::start(usb.device),
+        usb_task::start(usb.device, &remote_wakeup_signal),
     )
     .await;
 }

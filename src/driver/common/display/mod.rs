@@ -70,4 +70,11 @@ impl<'a> Oled<'a> {
 
         self.display.flush().unwrap();
     }
+
+    pub fn update_text_blocking(&mut self, text: &str, point: Point) {
+        Text::with_baseline(text, point, TEXT_STYLE, Baseline::Top)
+            .draw(&mut self.display)
+            .unwrap();
+        self.display.flush().unwrap();
+    }
 }

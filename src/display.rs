@@ -42,6 +42,15 @@ impl GlobalDisplay {
         }
     }
 
+    pub fn try_set_message(&self, str: &str) {
+        if let Ok(mut display) = self.inner.try_lock() {
+            display
+                .as_mut()
+                .unwrap()
+                .update_text_blocking(str, Oled::calculate_point(1, 3));
+        }
+    }
+
     pub async fn clear(&self) {
         self.inner.lock().await.as_mut().unwrap().clear().await;
     }

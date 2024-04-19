@@ -7,18 +7,20 @@ use crate::{
     display::DISPLAY,
     driver::{ball::Ball, keyboard::KeyboardScanner},
     keyboard::{keymap::KEYMAP, pressed::Pressed, state::KeyboardState},
-    usb::Hid,
+    task::usb_task::RemoteWakeupSignal,
+    usb::{Hid, SUSPENDED},
 };
 
 use super::split::{M2sTx, S2mRx, SlaveToMaster};
 
 /// Master-side main task.
 pub async fn start(
-    hid: Hid<'_>,
     mut ball: Option<Ball<'_>>,
     mut scanner: KeyboardScanner<'_>,
     s2m_rx: S2mRx<'_>,
     m2s_tx: M2sTx<'_>,
+    hid: Hid<'_>,
+    remote_wakeup_signal: &RemoteWakeupSignal,
 ) {
     DISPLAY.set_master(true).await;
 
@@ -82,6 +84,10 @@ pub async fn start(
         join3(
             async {
                 if !key_status.empty_keyboard_report {
+                    if SUSPENDED.load(core::sync::atomic::Ordering::Relaxed) {
+                        let _ = remote_wakeup_signal.signal(());
+                    }
+
                     let _ = kb_writer.write_serialize(&key_status.keyboard_report).await;
                     empty_kb_sent = false;
                 } else if !empty_kb_sent {
