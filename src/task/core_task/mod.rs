@@ -79,6 +79,7 @@ pub async fn start(
                 keyboard_scanner,
                 s2m_rx,
                 m2s_tx,
+                led_controller,
                 hid,
                 remote_wakeup_signal,
             ),

@@ -1,4 +1,4 @@
-use embassy_futures::join::{join, join3};
+use embassy_futures::join::{join, join3, join4};
 use embassy_time::Timer;
 use usbd_hid::descriptor::MouseReport;
 
@@ -7,11 +7,14 @@ use crate::{
     display::DISPLAY,
     driver::{ball::Ball, keyboard::KeyboardScanner},
     keyboard::{keymap::KEYMAP, pressed::Pressed, state::KeyboardState},
-    task::usb_task::RemoteWakeupSignal,
+    task::{
+        led_task::{LedAnimation, LedControl, LedCtrlTx},
+        usb_task::RemoteWakeupSignal,
+    },
     usb::{Hid, SUSPENDED},
 };
 
-use super::split::{M2sTx, S2mRx, SlaveToMaster};
+use super::split::{M2sTx, MasterToSlave, S2mRx, SlaveToMaster};
 
 /// Master-side main task.
 pub async fn start(
@@ -19,6 +22,7 @@ pub async fn start(
     mut scanner: KeyboardScanner<'_>,
     s2m_rx: S2mRx<'_>,
     m2s_tx: M2sTx<'_>,
+    led_controller: LedCtrlTx<'_>,
     hid: Hid<'_>,
     remote_wakeup_signal: &RemoteWakeupSignal,
 ) {
@@ -81,11 +85,11 @@ pub async fn start(
         )
         .await;
 
-        join3(
+        join4(
             async {
                 if !key_status.empty_keyboard_report {
                     if SUSPENDED.load(core::sync::atomic::Ordering::Relaxed) {
-                        let _ = remote_wakeup_signal.signal(());
+                        remote_wakeup_signal.signal(());
                     }
 
                     let _ = kb_writer.write_serialize(&key_status.keyboard_report).await;
@@ -129,6 +133,18 @@ pub async fn start(
                 crate::DISPLAY
                     .set_highest_layer(key_status.highest_layer as u8)
                     .await;
+            },
+            async {
+                if key_status.highest_layer == 1 {
+                    led_controller
+                        .send(LedControl::Animation(LedAnimation::SolidColor(10, 10, 10)))
+                        .await;
+                    m2s_tx
+                        .send(MasterToSlave::Led(LedControl::Animation(
+                            LedAnimation::SolidColor(10, 10, 10),
+                        )))
+                        .await;
+                }
             },
         )
         .await;

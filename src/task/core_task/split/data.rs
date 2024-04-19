@@ -2,7 +2,9 @@ use rkyv::ser::serializers::BufferSerializer;
 use rkyv::ser::Serializer;
 use rkyv::{AlignedBytes, Archive, Deserialize, Serialize};
 
-pub const MAX_DATA_SIZE: usize = 3;
+use crate::task::led_task::LedControl;
+
+pub const MAX_DATA_SIZE: usize = 4;
 
 macro_rules! impl_serde {
     ($s:ident) => {
@@ -26,7 +28,7 @@ macro_rules! impl_serde {
 #[derive(Archive, Deserialize, Serialize, Debug)]
 // #[archive(check_bytes)]
 pub enum MasterToSlave {
-    Led,
+    Led(LedControl),
     Message(u8),
 }
 
