@@ -1,4 +1,4 @@
-use embassy_futures::join::{join, join3, join4};
+use embassy_futures::join::{join, join4};
 use embassy_time::Timer;
 use usbd_hid::descriptor::MouseReport;
 
@@ -8,7 +8,7 @@ use crate::{
     driver::{ball::Ball, keyboard::KeyboardScanner},
     keyboard::{keymap::KEYMAP, pressed::Pressed, state::KeyboardState},
     task::{
-        led_task::{LedAnimation, LedControl, LedCtrlTx},
+        led_task::{LedAnimation, LedControl, LedCtrl},
         usb_task::RemoteWakeupSignal,
     },
     usb::{Hid, SUSPENDED},
@@ -22,7 +22,7 @@ pub async fn start(
     mut scanner: KeyboardScanner<'_>,
     s2m_rx: S2mRx<'_>,
     m2s_tx: M2sTx<'_>,
-    led_controller: LedCtrlTx<'_>,
+    led_controller: &LedCtrl,
     hid: Hid<'_>,
     remote_wakeup_signal: &RemoteWakeupSignal,
 ) {
@@ -136,14 +136,13 @@ pub async fn start(
             },
             async {
                 if key_status.highest_layer == 1 {
-                    led_controller
-                        .send(LedControl::Animation(LedAnimation::SolidColor(10, 10, 10)))
-                        .await;
-                    m2s_tx
-                        .send(MasterToSlave::Led(LedControl::Animation(
-                            LedAnimation::SolidColor(10, 10, 10),
-                        )))
-                        .await;
+                    let led = LedControl::Animation(LedAnimation::SolidColor(255, 0, 0));
+                    led_controller.signal(led.clone());
+                    m2s_tx.try_send(MasterToSlave::Led(led));
+                } else {
+                    let led = LedControl::Animation(LedAnimation::SolidColor(0, 0, 0));
+                    led_controller.signal(led.clone());
+                    m2s_tx.try_send(MasterToSlave::Led(led));
                 }
             },
         )

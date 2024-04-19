@@ -6,19 +6,36 @@ use crate::{
     display::DISPLAY,
     driver::{ball::Ball, keyboard::KeyboardScanner},
     keyboard::pressed::Pressed,
+    task::led_task::LedCtrl,
 };
 
 use super::split::{M2sRx, S2mTx, SlaveToMaster};
 
 /// Slave-side main task.
 pub async fn start(
-    mut ball: Option<Ball<'_>>,
-    mut scanner: KeyboardScanner<'_>,
+    ball: Option<Ball<'_>>,
+    scanner: KeyboardScanner<'_>,
     m2s_rx: M2sRx<'_>,
     s2m_tx: S2mTx<'_>,
+    led_controller: &LedCtrl,
 ) {
     DISPLAY.set_master(false).await;
 
+    join(key_scan(ball, scanner, s2m_tx), async {
+        loop {
+            let data = m2s_rx.receive().await;
+            match data {
+                super::split::MasterToSlave::Led(ctrl) => {
+                    led_controller.signal(ctrl);
+                }
+                super::split::MasterToSlave::Message(_) => {}
+            }
+        }
+    })
+    .await;
+}
+
+async fn key_scan(mut ball: Option<Ball<'_>>, mut scanner: KeyboardScanner<'_>, s2m_tx: S2mTx<'_>) {
     let mut pressed = Pressed::new();
     loop {
         let start = embassy_time::Instant::now();

@@ -4,7 +4,7 @@ use rkyv::{AlignedBytes, Archive, Deserialize, Serialize};
 
 use crate::task::led_task::LedControl;
 
-pub const MAX_DATA_SIZE: usize = 4;
+pub const MAX_DATA_SIZE: usize = 6;
 
 macro_rules! impl_serde {
     ($s:ident) => {

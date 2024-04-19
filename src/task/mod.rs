@@ -25,9 +25,7 @@ pub struct TaskPeripherals {
 
 /// Starts tasks.
 pub async fn start(p: TaskPeripherals) {
-    let led_ctrl_chan: led_task::LedCtrlChannel = Channel::new();
-    let led_ctrl_rx = led_ctrl_chan.receiver();
-    let led_ctrl_tx = led_ctrl_chan.sender();
+    let led_ctrl: led_task::LedCtrl = Signal::new();
 
     let remote_wakeup_signal: RemoteWakeupSignal = Signal::new();
 
@@ -52,11 +50,11 @@ pub async fn start(p: TaskPeripherals) {
             p.ball,
             p.keyboard,
             p.split,
-            led_ctrl_tx,
+            &led_ctrl,
             usb.hid,
             &remote_wakeup_signal,
         ),
-        led_task::start(p.led, led_ctrl_rx),
+        led_task::start(p.led, &led_ctrl),
         usb_task::start(usb.device, &remote_wakeup_signal),
     )
     .await;

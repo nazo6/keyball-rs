@@ -13,7 +13,7 @@ use crate::{
 };
 
 use super::{
-    led_task::LedCtrlTx, usb_task::RemoteWakeupSignal, BallPeripherals, KeyboardPeripherals,
+    led_task::LedCtrl, usb_task::RemoteWakeupSignal, BallPeripherals, KeyboardPeripherals,
     SplitPeripherals,
 };
 
@@ -26,7 +26,7 @@ pub async fn start(
     ball_peripherals: BallPeripherals,
     keyboard_peripherals: KeyboardPeripherals,
     split_peripherals: SplitPeripherals,
-    led_controller: LedCtrlTx<'_>,
+    led_controller: &LedCtrl,
     mut hid: Hid<'_>,
     remote_wakeup_signal: &RemoteWakeupSignal,
 ) {
@@ -88,7 +88,7 @@ pub async fn start(
         .await;
     } else {
         join(
-            slave::start(ball, keyboard_scanner, m2s_rx, s2m_tx),
+            slave::start(ball, keyboard_scanner, m2s_rx, s2m_tx, led_controller),
             split::slave_split_handle(split_peripherals, m2s_tx, s2m_rx),
         )
         .await;

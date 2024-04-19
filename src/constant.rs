@@ -1,5 +1,5 @@
-pub const SLAVE_LEDS_NUM: usize = 1;
-pub const MASTER_LEDS_NUM: usize = 1;
+pub const RIGHT_LED_NUM: usize = 34;
+pub const LEFT_LED_NUM: usize = 37;
 
 pub const SPLIT_BITRATE: f64 = 100000.0;
 pub const SPLIT_CLK_DIVIDER: f64 = 125_000_000.0 / (SPLIT_BITRATE * 8.0);
