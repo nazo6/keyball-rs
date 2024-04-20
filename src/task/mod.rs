@@ -1,10 +1,10 @@
-use embassy_futures::join::join3;
+use embassy_futures::join::{join, join3};
 use embassy_sync::signal::Signal;
 use embassy_usb::class::hid::State;
 
 use crate::{
     device::{peripherals::*, usb::create_usb_driver},
-    driver::keyboard::KeyboardScanner,
+    driver::{ball::Ball, keyboard::KeyboardScanner},
     usb::{device_handler::UsbDeviceHandler, request_handler::UsbRequestHandler, UsbOpts},
 };
 
@@ -24,13 +24,14 @@ pub struct TaskPeripherals {
 
 /// Starts tasks.
 pub async fn start(p: TaskPeripherals) {
-    let led_ctrl: led_task::LedCtrl = Signal::new();
+    // Setup LED signal
+    let led_controller: led_task::LedCtrl = Signal::new();
 
+    // Setup remote wakeup signal
     let remote_wakeup_signal: RemoteWakeupSignal = Signal::new();
 
+    // Setup USB
     let mut device_handler = UsbDeviceHandler::new();
-
-    // Usb keyboard and mouse
     let opts = UsbOpts {
         driver: create_usb_driver(p.usb),
         config_descriptor: &mut [0; 256],
@@ -44,21 +45,33 @@ pub async fn start(p: TaskPeripherals) {
     };
     let usb = crate::usb::create_usb(opts);
 
-    let keyboard_scanner = KeyboardScanner::new(p.keyboard).await;
-
-    crate::DISPLAY.set_hand(keyboard_scanner.hand).await;
+    let (scanner, ball) = join(
+        async {
+            // Setup keyboard
+            let scanner = KeyboardScanner::new(p.keyboard).await;
+            crate::DISPLAY.set_hand(scanner.hand).await;
+            scanner
+        },
+        async {
+            // Setup ball
+            let ball = Ball::init(p.ball).await.ok();
+            crate::DISPLAY.set_mouse(ball.is_some()).await;
+            ball
+        },
+    )
+    .await;
 
     join3(
         led_task::start(led_task::LedTaskResource {
             peripherals: p.led,
-            led_ctrl: &led_ctrl,
-            hand: keyboard_scanner.hand,
+            led_ctrl: &led_controller,
+            hand: scanner.hand,
         }),
         core_task::start(core_task::CoreTaskResource {
-            ball_peripherals: p.ball,
+            ball,
             split_peripherals: p.split,
-            scanner: keyboard_scanner,
-            led_controller: &led_ctrl,
+            scanner,
+            led_controller: &led_controller,
             hid: usb.hid,
             remote_wakeup_signal: &remote_wakeup_signal,
         }),

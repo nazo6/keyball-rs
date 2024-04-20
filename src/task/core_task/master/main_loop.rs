@@ -14,17 +14,29 @@ use crate::{
     usb::{Hid, SUSPENDED},
 };
 
-use super::split::{M2sTx, MasterToSlave, S2mRx, SlaveToMaster};
+use super::super::split::*;
+
+pub struct MasterMainLoopResource<'a, 'b> {
+    pub ball: Option<Ball<'a>>,
+    pub scanner: KeyboardScanner<'a>,
+    pub s2m_rx: S2mRx<'b>,
+    pub m2s_tx: M2sTx<'b>,
+    pub led_controller: &'a LedCtrl,
+    pub hid: Hid<'a>,
+    pub remote_wakeup_signal: &'a RemoteWakeupSignal,
+}
 
 /// Master-side main task.
-pub async fn start(
-    mut ball: Option<Ball<'_>>,
-    mut scanner: KeyboardScanner<'_>,
-    s2m_rx: S2mRx<'_>,
-    m2s_tx: M2sTx<'_>,
-    led_controller: &LedCtrl,
-    hid: Hid<'_>,
-    remote_wakeup_signal: &RemoteWakeupSignal,
+pub(super) async fn start<'a, 'b>(
+    MasterMainLoopResource {
+        mut ball,
+        mut scanner,
+        s2m_rx,
+        m2s_tx,
+        led_controller,
+        hid,
+        remote_wakeup_signal,
+    }: MasterMainLoopResource<'a, 'b>,
 ) {
     DISPLAY.set_master(true).await;
 

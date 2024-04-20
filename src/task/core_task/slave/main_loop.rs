@@ -3,39 +3,25 @@ use embassy_time::Timer;
 
 use crate::{
     constant::MIN_SCAN_INTERVAL,
-    display::DISPLAY,
     driver::{ball::Ball, keyboard::KeyboardScanner},
     keyboard::pressed::Pressed,
-    task::led_task::LedCtrl,
 };
 
-use super::split::{M2sRx, S2mTx, SlaveToMaster};
+use super::super::split::*;
 
-/// Slave-side main task.
-pub async fn start(
-    ball: Option<Ball<'_>>,
-    scanner: KeyboardScanner<'_>,
-    m2s_rx: M2sRx<'_>,
-    s2m_tx: S2mTx<'_>,
-    led_controller: &LedCtrl,
-) {
-    DISPLAY.set_master(false).await;
-
-    join(key_scan(ball, scanner, s2m_tx), async {
-        loop {
-            let data = m2s_rx.receive().await;
-            match data {
-                super::split::MasterToSlave::Led(ctrl) => {
-                    led_controller.signal(ctrl);
-                }
-                super::split::MasterToSlave::Message(_) => {}
-            }
-        }
-    })
-    .await;
+pub struct SlaveMainLoopResource<'a> {
+    pub ball: Option<Ball<'a>>,
+    pub scanner: KeyboardScanner<'a>,
+    pub s2m_tx: S2mTx<'a>,
 }
 
-async fn key_scan(mut ball: Option<Ball<'_>>, mut scanner: KeyboardScanner<'_>, s2m_tx: S2mTx<'_>) {
+pub(super) async fn start(
+    SlaveMainLoopResource {
+        mut ball,
+        mut scanner,
+        s2m_tx,
+    }: SlaveMainLoopResource<'_>,
+) {
     let mut pressed = Pressed::new();
     loop {
         let start = embassy_time::Instant::now();
@@ -66,7 +52,7 @@ async fn key_scan(mut ball: Option<Ball<'_>>, mut scanner: KeyboardScanner<'_>, 
                 if let Some(ball) = &mut ball {
                     if let Ok(Some(data)) = ball.read().await {
                         s2m_tx
-                            .send(super::split::SlaveToMaster::Mouse {
+                            .send(SlaveToMaster::Mouse {
                                 // x and y are swapped
                                 x: data.0,
                                 y: data.1,

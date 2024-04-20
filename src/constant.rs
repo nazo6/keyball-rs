@@ -5,7 +5,7 @@ pub const SPLIT_BITRATE: f64 = 100000.0;
 pub const SPLIT_CLK_DIVIDER: f64 = 125_000_000.0 / (SPLIT_BITRATE * 8.0);
 pub const SPLIT_CHANNEL_SIZE: usize = 10;
 /// Time (msec) to wait for USB connection to determine master/slave
-pub const SPLIT_USB_TIMEOUT: u64 = 300;
+pub const SPLIT_USB_TIMEOUT: u64 = 700;
 
 pub const SCAN_COLS: usize = 4;
 pub const SCAN_ROWS: usize = 5;
