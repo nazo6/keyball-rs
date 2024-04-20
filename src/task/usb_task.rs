@@ -13,11 +13,8 @@ pub struct UsbTaskResource<'a> {
 pub async fn start(UsbTaskResource { mut device, signal }: UsbTaskResource<'_>) {
     loop {
         device.run_until_suspend().await;
-        crate::DISPLAY.set_message("suspend").await;
         match select(device.wait_resume(), signal.wait()).await {
-            Either::First(_) => {
-                crate::DISPLAY.set_message("resume").await;
-            }
+            Either::First(_) => {}
             Either::Second(_) => {
                 let _ = device.remote_wakeup().await;
             }

@@ -32,17 +32,16 @@ pub async fn start(mut r: CoreTaskResource<'_>) {
 
     // VBUS detection is not available for ProMicro RP2040, so USB communication is used to determine master/slave.
     // This is same as SPLIT_USB_DETECT in QMK.
-    // let is_master = match select(
-    //     Timer::after_millis(SPLIT_USB_TIMEOUT),
-    // )
-    // .await
-    // {
-    //     Either::First(_) => true,
-    //     Either::Second(_) => false,
-    // };
+    let is_master = match select(
+        r.hid.keyboard.ready(),
+        Timer::after_millis(SPLIT_USB_TIMEOUT),
+    )
+    .await
+    {
+        Either::First(_) => true,
+        Either::Second(_) => false,
+    };
 
-    r.hid.keyboard.ready().await;
-    let is_master = true;
     crate::DISPLAY.set_master(is_master).await;
 
     if is_master {

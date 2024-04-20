@@ -1,4 +1,4 @@
-use embassy_futures::join::{join, join3};
+use embassy_futures::join::join;
 use embassy_sync::signal::Signal;
 use embassy_usb::class::hid::State;
 
@@ -45,40 +45,37 @@ pub async fn start(p: TaskPeripherals) {
     };
     let usb = crate::usb::create_usb(opts);
 
-    let (scanner, ball) = join(
-        async {
-            // Setup keyboard
-            let scanner = KeyboardScanner::new(p.keyboard).await;
-            crate::DISPLAY.set_hand(scanner.hand).await;
-            scanner
-        },
-        async {
-            // Setup ball
-            let ball = Ball::init(p.ball).await.ok();
-            crate::DISPLAY.set_mouse(ball.is_some()).await;
-            ball
-        },
-    )
-    .await;
-
-    join3(
-        led_task::start(led_task::LedTaskResource {
-            peripherals: p.led,
-            led_ctrl: &led_controller,
-            hand: scanner.hand,
-        }),
-        core_task::start(core_task::CoreTaskResource {
-            ball,
-            split_peripherals: p.split,
-            scanner,
-            led_controller: &led_controller,
-            hid: usb.hid,
-            remote_wakeup_signal: &remote_wakeup_signal,
-        }),
+    join(
         usb_task::start(usb_task::UsbTaskResource {
             device: usb.device,
             signal: &remote_wakeup_signal,
         }),
+        async {
+            let scanner = KeyboardScanner::new(p.keyboard).await;
+            crate::DISPLAY.set_hand(scanner.hand).await;
+
+            join(
+                led_task::start(led_task::LedTaskResource {
+                    peripherals: p.led,
+                    led_ctrl: &led_controller,
+                    hand: scanner.hand,
+                }),
+                async {
+                    let ball = Ball::init(p.ball).await.ok();
+                    crate::DISPLAY.set_mouse(ball.is_some()).await;
+                    core_task::start(core_task::CoreTaskResource {
+                        ball,
+                        split_peripherals: p.split,
+                        scanner,
+                        led_controller: &led_controller,
+                        hid: usb.hid,
+                        remote_wakeup_signal: &remote_wakeup_signal,
+                    })
+                    .await
+                },
+            )
+            .await
+        },
     )
     .await;
 }
