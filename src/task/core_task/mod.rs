@@ -7,28 +7,35 @@ use embassy_time::Timer;
 
 use crate::{
     constant::SPLIT_USB_TIMEOUT,
-    display::DISPLAY,
-    driver::{ball, keyboard},
+    driver::{ball, keyboard::KeyboardScanner},
     usb::Hid,
 };
 
-use super::{
-    led_task::LedCtrl, usb_task::RemoteWakeupSignal, BallPeripherals, KeyboardPeripherals,
-    SplitPeripherals,
-};
+use super::{led_task::LedCtrl, usb_task::RemoteWakeupSignal, BallPeripherals, SplitPeripherals};
 
 mod master;
 mod slave;
 
 mod split;
 
+pub struct CoreTaskResource<'a> {
+    pub ball_peripherals: BallPeripherals,
+    pub split_peripherals: SplitPeripherals,
+    pub scanner: KeyboardScanner<'a>,
+    pub led_controller: &'a LedCtrl,
+    pub hid: Hid<'a>,
+    pub remote_wakeup_signal: &'a RemoteWakeupSignal,
+}
+
 pub async fn start(
-    ball_peripherals: BallPeripherals,
-    keyboard_peripherals: KeyboardPeripherals,
-    split_peripherals: SplitPeripherals,
-    led_controller: &LedCtrl,
-    mut hid: Hid<'_>,
-    remote_wakeup_signal: &RemoteWakeupSignal,
+    CoreTaskResource {
+        ball_peripherals,
+        split_peripherals,
+        scanner,
+        led_controller,
+        mut hid,
+        remote_wakeup_signal,
+    }: CoreTaskResource<'_>,
 ) {
     // VBUS detection is not available for ProMicro RP2040, so USB communication is used to determine master/slave.
     // This is same as SPLIT_USB_DETECT in QMK.
@@ -47,10 +54,8 @@ pub async fn start(
     let m2s_rx = m2s_chan.receiver();
 
     let ball = ball::Ball::init(ball_peripherals).await.ok();
-    let keyboard_scanner = keyboard::KeyboardScanner::new(keyboard_peripherals).await;
 
-    DISPLAY.set_mouse(ball.is_some()).await;
-    DISPLAY.set_hand(keyboard_scanner.hand).await;
+    crate::DISPLAY.set_mouse(ball.is_some()).await;
 
     #[cfg(feature = "force-master")]
     {
@@ -76,7 +81,7 @@ pub async fn start(
         join(
             master::start(
                 ball,
-                keyboard_scanner,
+                scanner,
                 s2m_rx,
                 m2s_tx,
                 led_controller,
@@ -88,7 +93,7 @@ pub async fn start(
         .await;
     } else {
         join(
-            slave::start(ball, keyboard_scanner, m2s_rx, s2m_tx, led_controller),
+            slave::start(ball, scanner, m2s_rx, s2m_tx, led_controller),
             split::slave_split_handle(split_peripherals, m2s_tx, s2m_rx),
         )
         .await;

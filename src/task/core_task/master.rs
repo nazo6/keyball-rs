@@ -33,6 +33,7 @@ pub async fn start(
 
     let mut empty_kb_sent = false;
     let mut empty_mouse_sent = false;
+    let mut empty_led_sent = false;
 
     let mut master_pressed = Pressed::new();
     let mut slave_pressed = Pressed::new();
@@ -113,12 +114,13 @@ pub async fn start(
                     mouse_report.x = y;
                     mouse_report.y = x;
                 } else if key_status.mouse_button == 0 {
-                    if !empty_mouse_sent {
-                        let _ = mouse_writer.write_serialize(&mouse_report).await;
-                        empty_mouse_sent = true;
-                    } else {
-                        return;
-                    }
+                    return;
+                    // if !empty_mouse_sent {
+                    //     let _ = mouse_writer.write_serialize(&mouse_report).await;
+                    //     empty_mouse_sent = true;
+                    // } else {
+                    //     return;
+                    // }
                 }
 
                 mouse_report.buttons = key_status.mouse_button;
@@ -136,19 +138,22 @@ pub async fn start(
             },
             async {
                 if key_status.highest_layer == 1 {
-                    let led = LedControl::Animation(LedAnimation::SolidColor(255, 0, 0));
+                    let led = LedControl::Start(LedAnimation::SolidColor(50, 0, 0));
                     led_controller.signal(led.clone());
-                    m2s_tx.try_send(MasterToSlave::Led(led));
-                } else {
-                    let led = LedControl::Animation(LedAnimation::SolidColor(0, 0, 0));
+                    let _ = m2s_tx.try_send(MasterToSlave::Led(led));
+                    empty_led_sent = false;
+                } else if !empty_led_sent {
+                    let led = LedControl::Start(LedAnimation::SolidColor(0, 0, 0));
                     led_controller.signal(led.clone());
-                    m2s_tx.try_send(MasterToSlave::Led(led));
+                    let _ = m2s_tx.try_send(MasterToSlave::Led(led));
+                    empty_led_sent = true;
                 }
             },
         )
         .await;
 
         let took = start.elapsed().as_millis();
+        crate::utils::print!("Took: {}    ", start.elapsed().as_micros());
         if took < MIN_SCAN_INTERVAL {
             Timer::after_millis(MIN_SCAN_INTERVAL - took).await;
         }

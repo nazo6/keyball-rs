@@ -42,7 +42,14 @@ async fn main(_spawner: Spawner) {
 fn panic(info: &PanicInfo) -> ! {
     let mut str = heapless::String::<1000>::new();
     let loc = info.location().unwrap();
-    write!(&mut str, "P:\n{}\n{}\n", loc.file(), loc.line()).unwrap();
+    let file = loc.file().as_bytes();
+    let file = if file.len() > 20 {
+        &file[file.len() - 20..]
+    } else {
+        file
+    };
+    let file = core::str::from_utf8(file).unwrap();
+    write!(&mut str, "\n{}\n{}\n", file, loc.line()).unwrap();
 
     DISPLAY.try_draw_text(&str);
 

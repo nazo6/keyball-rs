@@ -1,11 +1,10 @@
 use embassy_futures::join::join3;
-use embassy_sync::{
-    blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel, signal::Signal,
-};
+use embassy_sync::signal::Signal;
 use embassy_usb::class::hid::State;
 
 use crate::{
     device::{peripherals::*, usb::create_usb_driver},
+    driver::keyboard::KeyboardScanner,
     usb::{device_handler::UsbDeviceHandler, request_handler::UsbRequestHandler, UsbOpts},
 };
 
@@ -45,17 +44,28 @@ pub async fn start(p: TaskPeripherals) {
     };
     let usb = crate::usb::create_usb(opts);
 
+    let keyboard_scanner = KeyboardScanner::new(p.keyboard).await;
+
+    crate::DISPLAY.set_hand(keyboard_scanner.hand).await;
+
     join3(
-        core_task::start(
-            p.ball,
-            p.keyboard,
-            p.split,
-            &led_ctrl,
-            usb.hid,
-            &remote_wakeup_signal,
-        ),
-        led_task::start(p.led, &led_ctrl),
-        usb_task::start(usb.device, &remote_wakeup_signal),
+        led_task::start(led_task::LedTaskResource {
+            peripherals: p.led,
+            led_ctrl: &led_ctrl,
+            hand: keyboard_scanner.hand,
+        }),
+        core_task::start(core_task::CoreTaskResource {
+            ball_peripherals: p.ball,
+            split_peripherals: p.split,
+            scanner: keyboard_scanner,
+            led_controller: &led_ctrl,
+            hid: usb.hid,
+            remote_wakeup_signal: &remote_wakeup_signal,
+        }),
+        usb_task::start(usb_task::UsbTaskResource {
+            device: usb.device,
+            signal: &remote_wakeup_signal,
+        }),
     )
     .await;
 }

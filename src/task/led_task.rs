@@ -1,19 +1,18 @@
-use embassy_sync::{
-    blocking_mutex::raw::ThreadModeRawMutex,
-    channel::{Channel, Receiver, Sender},
-    signal::Signal,
-};
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 
 use rkyv::{Archive, Deserialize, Serialize};
-use smart_leds::RGB8;
+use smart_leds::{hsv::hsv2rgb as hsv2rgb_orig, RGB8};
 
-use crate::driver::led::Ws2812;
+use crate::{
+    constant::{LEFT_LED_NUM, RIGHT_LED_NUM},
+    driver::{keyboard::Hand, led::Ws2812},
+};
 
 use super::LedPeripherals;
 
 #[derive(Archive, Deserialize, Serialize, Debug, Clone)]
 pub enum LedControl {
-    Animation(LedAnimation),
+    Start(LedAnimation),
     Reset,
 }
 
@@ -21,22 +20,39 @@ pub enum LedControl {
 pub enum LedAnimation {
     Rainbow,
     Blink,
+    // Color (hsv)
     SolidColor(u8, u8, u8),
+}
+
+fn hsv2rgb(h: u8, s: u8, v: u8) -> RGB8 {
+    let hsv = smart_leds::hsv::Hsv {
+        hue: h,
+        sat: s,
+        val: v,
+    };
+    hsv2rgb_orig(hsv)
 }
 
 pub type LedCtrl = Signal<ThreadModeRawMutex, LedControl>;
 
-pub async fn start(p: LedPeripherals, led_ctrl: &LedCtrl) {
-    // TODO: led_ctrl_rxから受け取ったメッセージによってLEDの色を変える
-
-    const NUM_LEDS: usize = 1;
-
+pub struct LedTaskResource<'a> {
+    pub peripherals: LedPeripherals,
+    pub led_ctrl: &'a LedCtrl,
+    pub hand: Hand,
+}
+pub async fn start(
+    LedTaskResource {
+        peripherals: p,
+        led_ctrl,
+        hand,
+    }: LedTaskResource<'_>,
+) {
     let mut ws2812: Ws2812 = Ws2812::new(p);
 
     loop {
         let ctrl = led_ctrl.wait().await;
         match ctrl {
-            LedControl::Animation(led_animation) => {
+            LedControl::Start(led_animation) => {
                 match led_animation {
                     LedAnimation::Rainbow => {
                         //
@@ -44,16 +60,32 @@ pub async fn start(p: LedPeripherals, led_ctrl: &LedCtrl) {
                     LedAnimation::Blink => {
                         //
                     }
-                    LedAnimation::SolidColor(r, g, b) => {
-                        let data = [(r, g, b).into(); NUM_LEDS];
-                        ws2812.write(&data).await;
+                    LedAnimation::SolidColor(h, s, v) => {
+                        // let color = hsv2rgb(h, s, v);
+                        let color = (h, s, v).into();
+                        match hand {
+                            Hand::Left => {
+                                let data = [color; LEFT_LED_NUM];
+                                ws2812.write(&data).await;
+                            }
+                            Hand::Right => {
+                                let data = [color; RIGHT_LED_NUM];
+                                ws2812.write(&data).await;
+                            }
+                        }
                     }
                 }
             }
-            LedControl::Reset => {
-                let data = [RGB8::default(); NUM_LEDS];
-                ws2812.write(&data).await;
-            }
+            LedControl::Reset => match hand {
+                Hand::Left => {
+                    let data = [RGB8::default(); LEFT_LED_NUM];
+                    ws2812.write(&data).await;
+                }
+                Hand::Right => {
+                    let data = [RGB8::default(); RIGHT_LED_NUM];
+                    ws2812.write(&data).await;
+                }
+            },
         }
     }
 }

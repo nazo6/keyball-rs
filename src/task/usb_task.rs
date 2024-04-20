@@ -6,7 +6,11 @@ use crate::device::usb::DeviceDriver;
 
 pub type RemoteWakeupSignal = embassy_sync::signal::Signal<CriticalSectionRawMutex, ()>;
 
-pub async fn start<'a>(mut device: UsbDevice<'a, DeviceDriver<'a>>, signal: &RemoteWakeupSignal) {
+pub struct UsbTaskResource<'a> {
+    pub device: UsbDevice<'a, DeviceDriver<'a>>,
+    pub signal: &'a RemoteWakeupSignal,
+}
+pub async fn start<'a>(UsbTaskResource { mut device, signal }: UsbTaskResource<'a>) {
     loop {
         device.run_until_suspend().await;
         match select(device.wait_resume(), signal.wait()).await {
