@@ -23,6 +23,7 @@ pub struct Oled<'a> {
         Ssd1306<I2CInterface<I2C<'a>>, DisplaySize128x32, BufferedGraphicsMode<DisplaySize128x32>>,
 }
 
+#[allow(dead_code)]
 impl<'a> Oled<'a> {
     pub fn new(p: DisplayPeripherals) -> Self {
         let interface = I2CDisplayInterface::new(create_i2c(p, 400_000));
@@ -40,16 +41,6 @@ impl<'a> Oled<'a> {
 
     pub async fn clear(&mut self) {
         self.display.clear_buffer();
-        self.display.flush_async().await.unwrap();
-    }
-
-    pub async fn draw_text(&mut self, text: &str) {
-        self.display.clear_buffer();
-
-        Text::with_baseline(text, Point::new(0, 0), TEXT_STYLE, Baseline::Top)
-            .draw(&mut self.display)
-            .unwrap();
-
         self.display.flush_async().await.unwrap();
     }
 

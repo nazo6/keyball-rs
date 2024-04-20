@@ -4,7 +4,7 @@ use embassy_usb::Handler;
 
 use super::SUSPENDED;
 
-use crate::utils::print_sync;
+// use crate::utils::print_sync;
 
 pub struct UsbDeviceHandler {
     configured: AtomicBool,
@@ -33,7 +33,7 @@ impl Handler for UsbDeviceHandler {
         // print_sync!("Bus reset, the Vbus current limit is 100mA");
     }
 
-    fn addressed(&mut self, addr: u8) {
+    fn addressed(&mut self, _addr: u8) {
         self.configured.store(false, Ordering::Relaxed);
         // print_sync!("USB address set to: {}", addr);
     }
@@ -51,9 +51,9 @@ impl Handler for UsbDeviceHandler {
 
     fn suspended(&mut self, suspended: bool) {
         if suspended {
-            print_sync!("Suspended");
+            // print_sync!("Suspended");
         } else {
-            print_sync!("Unsuspended");
+            // print_sync!("Unsuspended");
         }
         SUSPENDED.store(suspended, Ordering::Relaxed);
     }

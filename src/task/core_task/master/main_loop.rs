@@ -165,7 +165,7 @@ pub(super) async fn start<'a, 'b>(
         .await;
 
         let took = start.elapsed().as_millis();
-        crate::utils::print!("Took: {}    ", start.elapsed().as_micros());
+        // crate::utils::print!("Took: {}    ", start.elapsed().as_micros());
         if took < MIN_SCAN_INTERVAL {
             Timer::after_millis(MIN_SCAN_INTERVAL - took).await;
         }

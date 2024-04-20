@@ -133,8 +133,3 @@ impl KeyboardState {
         None
     }
 }
-
-pub struct KeyStateReporter<'a> {
-    pub kb_state: &'a mut KeyboardState,
-    pub key_status: KeyStateReport,
-}

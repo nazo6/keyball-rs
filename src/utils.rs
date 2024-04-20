@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 macro_rules! print {
     ($lit:literal) => {{
         $crate::display::DISPLAY.set_message($lit).await;

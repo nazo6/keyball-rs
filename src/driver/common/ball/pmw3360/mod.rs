@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod registers;
 mod srom_liftoff;
 mod srom_tracking;
