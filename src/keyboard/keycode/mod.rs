@@ -13,5 +13,3 @@ pub enum Keycode {
     Special(special::Special),
     Layer(layer::Layer),
 }
-
-pub const ____: Keycode = Keycode::Special(special::Special::Inherit);

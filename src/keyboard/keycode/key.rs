@@ -228,6 +228,8 @@ pub const DEL: super::Keycode = super::Keycode::Key(Key::Delete);
 pub const ESC: super::Keycode = super::Keycode::Key(Key::Escape);
 pub const SEMI: super::Keycode = super::Keycode::Key(Key::Semicolon);
 pub const COMM: super::Keycode = super::Keycode::Key(Key::Comma);
+pub const LBRC: super::Keycode = super::Keycode::Key(Key::LeftBracket);
+pub const RBRC: super::Keycode = super::Keycode::Key(Key::RightBracket);
 
 // Japanese keys
 pub const JCOLN: super::Keycode = super::Keycode::Key(Key::Quote);
@@ -236,3 +238,5 @@ pub const JBSLSH2: super::Keycode = super::Keycode::Key(Key::International3);
 pub const JAT: super::Keycode = super::Keycode::Key(Key::LeftBracket);
 pub const JCARET: super::Keycode = super::Keycode::Key(Key::Equal);
 pub const JZNHN: super::Keycode = super::Keycode::Key(Key::Grave);
+pub const JHNKN: super::Keycode = super::Keycode::Key(Key::International4);
+pub const JMHNKN: super::Keycode = super::Keycode::Key(Key::International5);

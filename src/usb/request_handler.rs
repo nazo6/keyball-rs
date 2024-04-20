@@ -1,4 +1,3 @@
-use defmt_rtt as _;
 use embassy_usb::class::hid::{ReportId, RequestHandler};
 use embassy_usb::control::OutResponse;
 

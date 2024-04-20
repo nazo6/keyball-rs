@@ -42,7 +42,6 @@ impl GlobalDisplay {
         }
     }
 
-    #[allow(dead_code)]
     pub fn try_set_message(&self, str: &str) {
         if let Ok(mut display) = self.inner.try_lock() {
             display

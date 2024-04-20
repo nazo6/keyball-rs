@@ -1,6 +1,5 @@
 use core::sync::atomic::AtomicBool;
 
-use defmt_rtt as _;
 use embassy_usb::class::hid::{HidReaderWriter, RequestHandler, State};
 use embassy_usb::{Builder, Config, Handler, UsbDevice};
 use usbd_hid::descriptor::{KeyboardReport, MouseReport, SerializedDescriptor};

@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 
-use core::fmt::Write as _;
 use core::panic::PanicInfo;
 
 use defmt_rtt as _;
@@ -40,7 +39,8 @@ async fn main(_spawner: Spawner) {
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    let mut str = heapless::String::<1000>::new();
+    use core::fmt::Write;
+
     let loc = info.location().unwrap();
     let file = loc.file().as_bytes();
     let file = if file.len() > 20 {
@@ -49,9 +49,10 @@ fn panic(info: &PanicInfo) -> ! {
         file
     };
     let file = core::str::from_utf8(file).unwrap();
-    write!(&mut str, "\n{}\n{}\n", file, loc.line()).unwrap();
 
-    DISPLAY.try_draw_text(&str);
+    let mut str = heapless::String::<512>::new();
+    write!(str, "\n{}\n{}\n", file, loc.line()).unwrap();
+    crate::DISPLAY.try_draw_text(&str);
 
     loop {}
 }
