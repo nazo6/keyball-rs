@@ -1,4 +1,4 @@
-use super::Keycode;
+use super::{macros::normal, KeyCode};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum Mouse {
@@ -9,8 +9,8 @@ pub enum Mouse {
     Forward = 0b0001_0000,
 }
 
-pub const M_L: Keycode = Keycode::Mouse(Mouse::Left);
-pub const M_R: Keycode = Keycode::Mouse(Mouse::Right);
-pub const M_MID: Keycode = Keycode::Mouse(Mouse::Middle);
-pub const M_BCK: Keycode = Keycode::Mouse(Mouse::Back);
-pub const M_FWD: Keycode = Keycode::Mouse(Mouse::Forward);
+normal!(M_L, Mouse, Left);
+normal!(M_R, Mouse, Right);
+normal!(M_MID, Mouse, Middle);
+normal!(M_BCK, Mouse, Back);
+normal!(M_FWD, Mouse, Forward);

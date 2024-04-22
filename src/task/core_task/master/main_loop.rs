@@ -6,7 +6,7 @@ use crate::{
     constant::MIN_SCAN_INTERVAL,
     display::DISPLAY,
     driver::{ball::Ball, keyboard::KeyboardScanner},
-    keyboard::{keymap::KEYMAP, pressed::Pressed, state::KeyboardState},
+    keyboard::{keymap::KEYMAP, pressed::Pressed},
     task::{
         led_task::{LedAnimation, LedControl, LedCtrl},
         usb_task::RemoteWakeupSignal,

@@ -1,7 +1,9 @@
+use embassy_time::Instant;
+
 use crate::constant::{LEFT_DETECT_JUMPER_KEY, SCAN_COLS, SCAN_ROWS};
 use crate::device::gpio::{Flex, Pull};
 use crate::device::peripherals::KeyboardPeripherals;
-use crate::keyboard::pressed::Pressed;
+use crate::keyboard::pressed::{KeyChangeInfo, Pressed};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Hand {
@@ -64,19 +66,24 @@ impl<'a> KeyboardScanner<'a> {
     }
 
     // Returns true if value is changed.
-    pub async fn scan_and_update(&mut self, state: &mut Pressed) -> bool {
+    pub async fn scan_and_update<const COLS: usize, const ROWS: usize, T: Default>(
+        &mut self,
+        state: &mut Pressed<COLS, ROWS, T>,
+        time: Instant,
+    ) -> bool {
         let mut changed = false;
-        self.scan_and_update_with_cb(state, |_, _, _| {
+        self.scan_and_update_with_cb(state, time, |_, _, _| {
             changed = true;
         })
         .await;
         changed
     }
 
-    pub async fn scan_and_update_with_cb(
+    pub async fn scan_and_update_with_cb<const COLS: usize, const ROWS: usize, T: Default>(
         &mut self,
-        pressed: &mut Pressed,
-        mut cb: impl FnMut(usize, usize, bool),
+        pressed: &mut Pressed<COLS, ROWS, T>,
+        time: Instant,
+        mut cb: impl FnMut(usize, usize, KeyChangeInfo),
     ) {
         // col -> row scan
         {
@@ -98,8 +105,8 @@ impl<'a> KeyboardScanner<'a> {
 
                 for (i, row) in self.rows.iter_mut().enumerate() {
                     let state = row.is_high();
-                    if pressed.set_pressed(state, i as u8, j as u8) {
-                        cb(i, j, state);
+                    if let Some(change) = pressed.set_pressed(state, i as u8, j as u8, time) {
+                        cb(i, j, change);
                     }
                 }
 
@@ -129,8 +136,8 @@ impl<'a> KeyboardScanner<'a> {
 
                     let state = col.is_high();
 
-                    if pressed.set_pressed(state, i as u8, (j + 3) as u8) {
-                        cb(i, j + 3, state);
+                    if let Some(change) = pressed.set_pressed(state, i as u8, (j + 3) as u8, time) {
+                        cb(i, j + 3, change);
                     }
                 }
 

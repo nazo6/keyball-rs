@@ -14,6 +14,7 @@ mod device;
 mod display;
 mod driver;
 mod keyboard;
+mod state;
 mod task;
 mod usb;
 mod utils;

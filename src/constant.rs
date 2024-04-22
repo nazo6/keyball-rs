@@ -21,3 +21,6 @@ pub const ROWS: usize = 5;
 pub const LEFT_DETECT_JUMPER_KEY: (usize, usize) = (2, 6);
 
 pub const LAYER_NUM: usize = 4;
+
+pub const AUTO_MOUSE_THRESHOLD: u32 = 500;
+pub const AUTO_MOUSE_LAYER: usize = 1;

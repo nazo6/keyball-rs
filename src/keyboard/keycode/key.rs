@@ -1,4 +1,7 @@
-use super::{macros::with_consts, Keycode};
+use super::{
+    macros::{normal, with_consts},
+    KeyAction,
+};
 
 with_consts!(
     Key,
@@ -223,20 +226,20 @@ with_consts!(
 );
 
 // aliases
-pub const BS: super::Keycode = super::Keycode::Key(Key::Backspace);
-pub const DEL: super::Keycode = super::Keycode::Key(Key::Delete);
-pub const ESC: super::Keycode = super::Keycode::Key(Key::Escape);
-pub const SEMI: super::Keycode = super::Keycode::Key(Key::Semicolon);
-pub const COMM: super::Keycode = super::Keycode::Key(Key::Comma);
-pub const LBRC: super::Keycode = super::Keycode::Key(Key::LeftBracket);
-pub const RBRC: super::Keycode = super::Keycode::Key(Key::RightBracket);
+normal!(BS, Key, Backspace);
+normal!(DEL, Key, Delete);
+normal!(ESC, Key, Escape);
+normal!(SEMI, Key, Semicolon);
+normal!(COMM, Key, Comma);
+normal!(LBRC, Key, LeftBracket);
+normal!(RBRC, Key, RightBracket);
 
 // Japanese keys
-pub const JCOLN: super::Keycode = super::Keycode::Key(Key::Quote);
-pub const JBSLSH: super::Keycode = super::Keycode::Key(Key::International1);
-pub const JBSLSH2: super::Keycode = super::Keycode::Key(Key::International3);
-pub const JAT: super::Keycode = super::Keycode::Key(Key::LeftBracket);
-pub const JCARET: super::Keycode = super::Keycode::Key(Key::Equal);
-pub const JZNHN: super::Keycode = super::Keycode::Key(Key::Grave);
-pub const JHNKN: super::Keycode = super::Keycode::Key(Key::International4);
-pub const JMHNKN: super::Keycode = super::Keycode::Key(Key::International5);
+normal!(JCOLN, Key, Quote);
+normal!(JBSLSH, Key, International1);
+normal!(JBSLSH2, Key, International3);
+normal!(JAT, Key, LeftBracket);
+normal!(JCARET, Key, Equal);
+normal!(JZNHN, Key, Grave);
+normal!(JHNKN, Key, International4);
+normal!(JMHNKN, Key, International5);

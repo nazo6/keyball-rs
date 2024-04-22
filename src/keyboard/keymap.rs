@@ -5,8 +5,7 @@ use super::keycode::layer::*;
 use super::keycode::modifier::*;
 use super::keycode::mouse::*;
 use super::keycode::special::*;
-
-use super::state::Layer;
+use super::keycode::{Layer, *};
 
 #[rustfmt::skip]
 const L0: Layer = [
