@@ -131,12 +131,7 @@ impl<'a> Communicate<'a> {
     }
 
     pub async fn recv_byte(&mut self) -> (bool, bool, u8) {
-        let mut data = loop {
-            if let Some(data) = self.rx_sm.rx().try_pull() {
-                break data;
-            }
-            yield_now().await;
-        };
+        let mut data = self.rx_sm.rx().wait_pull().await;
         let end_bit = data & 1;
         data >>= 1;
         let start_bit = data & 1;

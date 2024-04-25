@@ -1,7 +1,10 @@
 #![no_std]
 #![no_main]
 
-use core::panic::PanicInfo;
+use core::{
+    panic::PanicInfo,
+    sync::atomic::{self, Ordering},
+};
 
 use crate::utils::print;
 use defmt_rtt as _;
@@ -56,5 +59,7 @@ fn panic(info: &PanicInfo) -> ! {
     write!(str, "\n{}\n{}\n", file, loc.line()).unwrap();
     crate::DISPLAY.try_draw_text(&str);
 
-    loop {}
+    loop {
+        atomic::compiler_fence(Ordering::SeqCst);
+    }
 }

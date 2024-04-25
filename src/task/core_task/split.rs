@@ -15,7 +15,7 @@ pub type M2sChannel = Channel<ThreadModeRawMutex, MasterToSlave, SPLIT_CHANNEL_S
 pub type M2sRx<'a> = Receiver<'a, ThreadModeRawMutex, MasterToSlave, SPLIT_CHANNEL_SIZE>;
 pub type M2sTx<'a> = Sender<'a, ThreadModeRawMutex, MasterToSlave, SPLIT_CHANNEL_SIZE>;
 
-pub const MAX_DATA_SIZE: usize = 6;
+pub const MAX_DATA_SIZE: usize = 8;
 
 macro_rules! impl_serde {
     ($s:ident) => {

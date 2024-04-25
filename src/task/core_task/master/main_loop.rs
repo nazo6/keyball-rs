@@ -114,25 +114,25 @@ pub(super) async fn start<'a, 'b>(
                     .await;
             },
             async {
-                if state_report.highest_layer == 1 {
-                    let led = LedControl::Start(LedAnimation::SolidColor(50, 0, 0));
-                    led_controller.signal(led.clone());
-                    let _ = m2s_tx.try_send(MasterToSlave::Led(led));
-                    empty_led_sent = false;
-                } else if !empty_led_sent {
-                    let led = LedControl::Start(LedAnimation::SolidColor(0, 0, 0));
-                    led_controller.signal(led.clone());
-                    let _ = m2s_tx.try_send(MasterToSlave::Led(led));
-                    empty_led_sent = true;
-                }
+                // if state_report.highest_layer == 1 {
+                //     let led = LedControl::Start(LedAnimation::SolidColor(50, 0, 0));
+                //     led_controller.signal(led.clone());
+                //     let _ = m2s_tx.try_send(MasterToSlave::Led(led));
+                //     empty_led_sent = false;
+                // } else if !empty_led_sent {
+                //     let led = LedControl::Start(LedAnimation::SolidColor(0, 0, 0));
+                //     led_controller.signal(led.clone());
+                //     let _ = m2s_tx.try_send(MasterToSlave::Led(led));
+                //     empty_led_sent = true;
+                // }
             },
         )
         .await;
 
-        let took = start.elapsed().as_millis();
-        // crate::utils::print!("Took: {}    ", start.elapsed().as_micros());
+        let took = start.elapsed().as_micros();
+        // crate::print!("{} {} {}\n", d1, d2, took);
         if took < MIN_SCAN_INTERVAL {
-            Timer::after_millis(MIN_SCAN_INTERVAL - took).await;
+            Timer::after_micros(MIN_SCAN_INTERVAL * 1000 - took).await;
         }
     }
 }
