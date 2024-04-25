@@ -24,3 +24,5 @@ pub const LAYER_NUM: usize = 4;
 
 pub const AUTO_MOUSE_TIME: u64 = 500;
 pub const AUTO_MOUSE_LAYER: usize = 1;
+
+pub const TAP_THRESHOLD: u64 = 200;

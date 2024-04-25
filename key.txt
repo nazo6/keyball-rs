@@ -1,0 +1,41 @@
+o: 送信する
+x: 送信しない
+その他: 特殊処理
+
+Inheritはこの前に解決しておく
+
+- Pressed
+  - Normal        o
+  - Modifier      o
+  - WithModifier  o
+  - Mouse         o
+  - ModTap        Modを送信
+  - Layer
+    - Temp        レイヤ有効化
+    - Toggle      x
+  - Special
+    - MoScrl      スクロールモードオン
+
+- Pressing
+  - Normal        o
+  - Modifier      o
+  - WithModifier  o
+  - Mouse         o
+  - ModTap        Modを送信
+  - Layer
+    - Temp        x
+    - Toggle      x
+  - Special
+    - MoScrl      x
+
+- Released
+  - Normal        x
+  - Modifier      x
+  - WithModifier  x
+  - Mouse         x
+  - ModTap        x
+  - Layer
+    - Temp        レイヤ無効化
+    - Toggle      o
+  - Special
+    - MoScrl      スクロールモードオフ

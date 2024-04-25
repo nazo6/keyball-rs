@@ -6,7 +6,7 @@ use crate::{
     display::DISPLAY,
     driver::{
         ball::Ball,
-        keyboard::{Hand, KeyChangeEvent, KeyboardScanner},
+        keyboard::{Hand, KeyChangeEventOneHand, KeyboardScanner},
     },
     keyboard::keymap::KEYMAP,
     state::State,
@@ -65,7 +65,7 @@ pub(super) async fn start<'a, 'b>(
             match cmd_from_slave {
                 SlaveToMaster::Pressed(row, col) => {
                     slave_events
-                        .push(KeyChangeEvent {
+                        .push(KeyChangeEventOneHand {
                             col,
                             row,
                             pressed: true,
@@ -74,7 +74,7 @@ pub(super) async fn start<'a, 'b>(
                 }
                 SlaveToMaster::Released(row, col) => {
                     slave_events
-                        .push(KeyChangeEvent {
+                        .push(KeyChangeEventOneHand {
                             col,
                             row,
                             pressed: false,

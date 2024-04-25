@@ -16,13 +16,25 @@ pub enum KeyCode {
     Layer(layer::Layer),
 }
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Copy)]
 pub enum KeyAction {
     None,
     Inherit,
     Normal(KeyCode),
     Tap(KeyCode),
     TapHold(KeyCode, KeyCode),
+}
+
+pub enum KeyCode2 {
+    None,
+    Inherit,
+    Normal(key::Key),
+    Modifier(modifier::Modifier),
+    WithModifier(modifier::Modifier, key::Key),
+    Mouse(mouse::Mouse),
+    Special(special::Special),
+    ModTap(modifier::Modifier, key::Key),
+    Layer(layer::Layer),
 }
 
 pub const _____: KeyAction = KeyAction::Inherit;

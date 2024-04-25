@@ -1,14 +1,18 @@
+#![allow(clippy::single_match)]
+
+use core::array::from_fn;
+
 use embassy_time::Instant;
 use usbd_hid::descriptor::{KeyboardReport, MouseReport};
 
 use crate::{
-    constant::{AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS},
-    driver::keyboard::{Hand, KeyChangeEvent},
+    constant::{AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS, TAP_THRESHOLD},
+    driver::keyboard::{Hand, KeyChangeEventOneHand},
     keyboard::keycode::{special::Special, KeyCode, Layer},
 };
 
 use self::{
-    all_pressed::{AllPressed, KeyChangeTypeWithDuration},
+    all_pressed::{AllPressed, KeyStatusChangeType},
     report::StateReport,
 };
 
@@ -17,6 +21,11 @@ use super::keyboard::keycode::KeyAction;
 mod all_pressed;
 pub mod report;
 
+#[derive(Default)]
+pub struct KeyState {
+    tapped: bool,
+}
+
 pub struct State {
     master_hand: Hand,
 
@@ -24,6 +33,7 @@ pub struct State {
     layer_active: [bool; LAYER_NUM],
 
     pressed: AllPressed,
+    key_state: [[KeyState; COLS * 2]; ROWS],
 
     auto_mouse_start: Option<Instant>,
     scroll_mode: bool,
@@ -35,12 +45,17 @@ pub struct State {
 impl State {
     pub fn new(layers: [Layer; LAYER_NUM], master_hand: Hand) -> Self {
         Self {
+            master_hand,
+
             layers,
             layer_active: [false; LAYER_NUM],
-            master_hand,
+
             pressed: AllPressed::new(),
+            key_state: from_fn(|_| from_fn(|_| KeyState::default())),
+
             auto_mouse_start: None,
             scroll_mode: false,
+
             empty_kb_sent: false,
             empty_mouse_sent: false,
         }
@@ -48,8 +63,8 @@ impl State {
 
     pub fn update(
         &mut self,
-        master_events: &mut [KeyChangeEvent],
-        slave_events: &mut [KeyChangeEvent],
+        master_events: &mut [KeyChangeEventOneHand],
+        slave_events: &mut [KeyChangeEventOneHand],
         mouse_event: &(i8, i8),
     ) -> StateReport {
         let now = Instant::now();
@@ -63,21 +78,9 @@ impl State {
             event.col = ((COLS - 1) as u8 - event.col) + COLS as u8;
         });
 
-        let events = right_events.iter_mut().chain(left_events.iter_mut());
+        let split_events = right_events.iter().chain(left_events.iter());
 
-        for event in events {
-            let change = self
-                .pressed
-                .set_pressed(event.pressed, event.row, event.col, now);
-            if let Some(KeyChangeTypeWithDuration::Released(_)) = change {
-                if let Some(key) = self.get_keycode(event.row, event.col) {
-                    // disable scroll mode
-                    if *key == KeyAction::Normal(KeyCode::Special(Special::MoScrl)) {
-                        self.scroll_mode = false;
-                    }
-                }
-            }
-        }
+        let events = self.pressed.compose_events(split_events, now);
 
         let mut keycodes = [0; 6];
         let mut keycodes_idx = 0;
@@ -86,41 +89,91 @@ impl State {
 
         let mut mouse_buttons = 0;
 
-        let mut handle_kc = |kc: &KeyCode| match kc {
-            KeyCode::Modifier(m) => {
-                modifier |= *m as u8;
-            }
-            KeyCode::Mouse(mb) => {
-                mouse_buttons |= *mb as u8;
-            }
-            KeyCode::Key(kc) => {
-                if keycodes_idx < 6 {
-                    keycodes[keycodes_idx] = *kc as u8;
-                    keycodes_idx += 1;
-                }
-            }
-            KeyCode::Special(sc) => match sc {
-                Special::MoScrl => {
-                    // *scroll_mode = true;
-                }
-            },
-            KeyCode::Layer(_) => todo!(),
-        };
+        for event in events {
+            let Some(key) = self.get_keycode(event.row, event.col) else {
+                continue;
+            };
 
-        for (row, col, key_state) in self.pressed.iter() {
-            let key = self.get_keycode(row, col);
-            if let Some(key) = key {
-                match key {
-                    KeyAction::None => {}
-                    KeyAction::Inherit => {}
-                    KeyAction::Normal(kc) => handle_kc(kc),
-                    KeyAction::Tap(kc) => {
-                        if !key_state.tapped {
-                            handle_kc(kc);
-                            // key_state.tapped = true;
+            match event.change_type {
+                KeyStatusChangeType::Released(duration) => {
+                    // Apply keycodes to the report
+                    let mut handle_kc_released = |kc: KeyCode| match kc {
+                        KeyCode::Key(kc) => {
+                            if keycodes_idx < 6 {
+                                keycodes[keycodes_idx] = kc as u8;
+                                keycodes_idx += 1;
+                            }
                         }
+                        KeyCode::Special(kc) => match kc {
+                            Special::MoScrl => {
+                                self.scroll_mode = false;
+                            }
+                        },
+                        _ => {}
+                    };
+
+                    match key {
+                        KeyAction::Normal(kc) => {
+                            handle_kc_released(kc);
+                        }
+                        KeyAction::Tap(kc) => {
+                            let key_state =
+                                &mut self.key_state[event.row as usize][event.col as usize];
+                            if key_state.tapped {
+                                handle_kc_released(kc);
+                                key_state.tapped = false;
+                            }
+                        }
+                        KeyAction::TapHold(tkc, hkc) => {
+                            if duration.as_millis() > TAP_THRESHOLD {
+                                handle_kc_released(hkc);
+                            } else {
+                                handle_kc_released(tkc);
+                            }
+                        }
+                        _ => {}
                     }
-                    KeyAction::TapHold(_, _) => todo!(),
+                }
+                KeyStatusChangeType::Pressed => {
+                    let mut handle_kc_pressed = |kc: KeyCode| match kc {
+                        KeyCode::Special(kc) => match kc {
+                            Special::MoScrl => {
+                                self.scroll_mode = true;
+                            }
+                        },
+                        _ => {}
+                    };
+
+                    match key {
+                        KeyAction::Normal(kc) => {
+                            handle_kc_pressed(kc);
+                        }
+                        _ => {}
+                    }
+                }
+                KeyStatusChangeType::Pressing(duration) => {
+                    let mut handle_kc_pressing = |kc: KeyCode| match kc {
+                        KeyCode::Key(kc) => {
+                            if keycodes_idx < 6 {
+                                keycodes[keycodes_idx] = kc as u8;
+                                keycodes_idx += 1;
+                            }
+                        }
+                        KeyCode::Mouse(btn) => {
+                            mouse_buttons |= btn as u8;
+                        }
+                        KeyCode::Modifier(modi) => {
+                            modifier |= modi as u8;
+                        }
+                        _ => {}
+                    };
+
+                    match key {
+                        KeyAction::Normal(kc) => {
+                            handle_kc_pressing(kc);
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
@@ -192,7 +245,7 @@ impl State {
         }
     }
 
-    fn get_keycode(&self, row: u8, col: u8) -> Option<&KeyAction> {
+    fn get_keycode(&self, row: u8, col: u8) -> Option<KeyAction> {
         if row >= ROWS as u8 || col >= (COLS * 2) as u8 {
             return None;
         }
@@ -202,7 +255,7 @@ impl State {
         for layer in (0..=highest_layer).rev() {
             let key = &self.layers[layer][row as usize][col as usize];
             if *key != KeyAction::None {
-                return Some(key);
+                return Some(*key);
             }
         }
 

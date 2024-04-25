@@ -1,4 +1,4 @@
-use crate::constant::{COLS, LEFT_DETECT_JUMPER_KEY, ROWS, SCAN_COLS, SCAN_ROWS};
+use crate::constant::{LEFT_DETECT_JUMPER_KEY, SCAN_COLS, SCAN_ROWS};
 use crate::device::gpio::{Flex, Pull};
 use crate::device::peripherals::KeyboardPeripherals;
 
@@ -9,7 +9,7 @@ pub use hand::Hand;
 use self::pressed::Pressed;
 
 #[derive(Debug)]
-pub struct KeyChangeEvent {
+pub struct KeyChangeEventOneHand {
     pub col: u8,
     pub row: u8,
     pub pressed: bool,
@@ -44,7 +44,7 @@ impl<'a> KeyboardScanner<'a> {
         }
     }
 
-    pub async fn scan(&mut self) -> heapless::Vec<KeyChangeEvent, 16> {
+    pub async fn scan(&mut self) -> heapless::Vec<KeyChangeEventOneHand, 16> {
         let mut events = heapless::Vec::new();
         self.scan_with_cb(|e| {
             events.push(e).ok();
@@ -53,7 +53,7 @@ impl<'a> KeyboardScanner<'a> {
         events
     }
 
-    async fn scan_with_cb(&mut self, mut cb: impl FnMut(KeyChangeEvent)) {
+    async fn scan_with_cb(&mut self, mut cb: impl FnMut(KeyChangeEventOneHand)) {
         // col -> row scan
         {
             for (j, col) in self.cols.iter_mut().enumerate() {
@@ -75,7 +75,7 @@ impl<'a> KeyboardScanner<'a> {
                 for (i, row) in self.rows.iter_mut().enumerate() {
                     let state = row.is_high();
                     if let Some(change) = self.pressed.set_pressed(state, i as u8, j as u8) {
-                        cb(KeyChangeEvent {
+                        cb(KeyChangeEventOneHand {
                             row: i as u8,
                             col: j as u8,
                             pressed: change,
@@ -110,7 +110,7 @@ impl<'a> KeyboardScanner<'a> {
                     let state = col.is_high();
 
                     if let Some(change) = self.pressed.set_pressed(state, i as u8, (j + 3) as u8) {
-                        cb(KeyChangeEvent {
+                        cb(KeyChangeEventOneHand {
                             row: i as u8,
                             col: (j + 3) as u8,
                             pressed: change,
