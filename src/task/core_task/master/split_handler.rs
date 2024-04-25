@@ -16,7 +16,6 @@ pub async fn start(p: SplitPeripherals, m2s_rx: M2sRx<'_>, s2m_tx: S2mTx<'_>) {
         match select(comm.recv_data::<MAX_DATA_SIZE>(&mut buf), m2s_rx.receive()).await {
             Either::First(_) => {
                 let data = SlaveToMaster::from_bytes(&buf);
-                crate::print!("S2M: {:?}\n", data);
                 let _ = s2m_tx.try_send(data);
             }
             Either::Second(send_data) => {

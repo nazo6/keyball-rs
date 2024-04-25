@@ -36,6 +36,9 @@ impl AllPressed {
         col: u8,
         update_time: Instant,
     ) -> Option<KeyChangeTypeWithDuration> {
+        if row as usize >= ROWS || col as usize >= COLS * 2 {
+            return None;
+        }
         let key_state = &mut self.state[row as usize][col as usize];
         if let Some(time) = key_state.press_start {
             if pressed {

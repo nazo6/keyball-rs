@@ -43,13 +43,13 @@ pub(super) async fn start(
             async {
                 if let Some(ball) = &mut ball {
                     if let Ok(Some(data)) = ball.read().await {
-                        s2m_tx
-                            .send(SlaveToMaster::Mouse {
-                                // x and y are swapped
-                                x: data.0,
-                                y: data.1,
-                            })
-                            .await;
+                        let e = SlaveToMaster::Mouse {
+                            // x and y are swapped
+                            x: data.0,
+                            y: data.1,
+                        };
+                        crate::print!("S2M: {:?}\n", e);
+                        s2m_tx.send(e).await;
                     }
                 }
             },
