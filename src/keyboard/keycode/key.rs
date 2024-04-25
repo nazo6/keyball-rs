@@ -5,7 +5,7 @@ use super::{
 
 with_consts!(
     Key,
-    #[derive(PartialEq, Eq, Clone, Copy)]
+    #[derive(PartialEq, Eq, Clone, Copy, Debug)]
     pub enum Key {
         A = 0x04,
         B = 0x05,

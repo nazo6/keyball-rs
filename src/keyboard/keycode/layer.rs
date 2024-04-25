@@ -4,7 +4,7 @@ use crate::constant::LAYER_NUM;
 
 use super::{KeyAction, KeyCode};
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Layer {
     Move(usize),
     Toggle(usize),

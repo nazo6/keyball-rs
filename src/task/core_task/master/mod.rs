@@ -28,6 +28,7 @@ pub async fn start(r: CoreTaskResource<'_>) {
             led_controller: r.led_controller,
             hid: r.hid,
             remote_wakeup_signal: r.remote_wakeup_signal,
+            hand: r.hand,
         }),
         split_handler::start(r.split_peripherals, m2s_rx, s2m_tx),
     )

@@ -51,14 +51,15 @@ pub async fn start(p: TaskPeripherals) {
             signal: &remote_wakeup_signal,
         }),
         async {
-            let scanner = KeyboardScanner::new(p.keyboard).await;
-            crate::DISPLAY.set_hand(scanner.hand).await;
+            let mut scanner = KeyboardScanner::new(p.keyboard).await;
+            let hand = scanner.hand().await;
+            crate::DISPLAY.set_hand(hand).await;
 
             join(
                 led_task::start(led_task::LedTaskResource {
                     peripherals: p.led,
                     led_ctrl: &led_controller,
-                    hand: scanner.hand,
+                    hand,
                 }),
                 async {
                     let ball = Ball::init(p.ball).await.ok();
@@ -70,6 +71,7 @@ pub async fn start(p: TaskPeripherals) {
                         led_controller: &led_controller,
                         hid: usb.hid,
                         remote_wakeup_signal: &remote_wakeup_signal,
+                        hand,
                     })
                     .await
                 },

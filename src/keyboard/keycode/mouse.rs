@@ -1,6 +1,6 @@
 use super::{macros::normal, KeyCode};
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum Mouse {
     Left = 0b0000_0001,
     Right = 0b0000_0010,

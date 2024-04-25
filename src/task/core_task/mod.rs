@@ -3,7 +3,10 @@ use embassy_time::Timer;
 
 use crate::{
     constant::SPLIT_USB_TIMEOUT,
-    driver::{ball::Ball, keyboard::KeyboardScanner},
+    driver::{
+        ball::Ball,
+        keyboard::{Hand, KeyboardScanner},
+    },
     usb::Hid,
 };
 
@@ -21,6 +24,7 @@ pub struct CoreTaskResource<'a> {
     pub led_controller: &'a LedCtrl,
     pub hid: Hid<'a>,
     pub remote_wakeup_signal: &'a RemoteWakeupSignal,
+    pub hand: Hand,
 }
 
 pub async fn start(mut r: CoreTaskResource<'_>) {

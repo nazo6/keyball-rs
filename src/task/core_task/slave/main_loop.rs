@@ -4,7 +4,6 @@ use embassy_time::Timer;
 use crate::{
     constant::MIN_SCAN_INTERVAL,
     driver::{ball::Ball, keyboard::KeyboardScanner},
-    keyboard::pressed::Pressed,
 };
 
 use super::super::split::*;
@@ -22,30 +21,23 @@ pub(super) async fn start(
         s2m_tx,
     }: SlaveMainLoopResource<'_>,
 ) {
-    let mut pressed = Pressed::new();
     loop {
         let start = embassy_time::Instant::now();
 
         join(
             async {
-                let mut changes = heapless::Vec::<SlaveToMaster, 6>::new();
-                scanner
-                    .scan_and_update_with_cb(&mut pressed, |row, col, state| {
-                        if state {
-                            changes
-                                .push(SlaveToMaster::Pressed(row as u8, col as u8))
-                                .ok();
-                        } else {
-                            changes
-                                .push(SlaveToMaster::Released(row as u8, col as u8))
-                                .ok();
-                        }
-                    })
-                    .await;
+                let key_events = scanner.scan().await;
 
-                for change in changes {
-                    crate::utils::print!("S2M: {:?}\n", change);
-                    s2m_tx.send(change).await;
+                for event in key_events {
+                    let event = if event.pressed {
+                        SlaveToMaster::Pressed(event.row, event.col)
+                    } else {
+                        SlaveToMaster::Released(event.row, event.col)
+                    };
+
+                    crate::print!("S2M: {:?}\n", event);
+
+                    s2m_tx.send(event).await;
                 }
             },
             async {

@@ -3,6 +3,7 @@
 
 use core::panic::PanicInfo;
 
+use crate::utils::print;
 use defmt_rtt as _;
 use device::peripherals::init_peripherals;
 use display::DISPLAY;

@@ -1,17 +1,20 @@
-use embassy_futures::join::{join, join4};
+use embassy_futures::join::{join, join3};
 use embassy_time::Timer;
-use usbd_hid::descriptor::MouseReport;
 
 use crate::{
     constant::MIN_SCAN_INTERVAL,
     display::DISPLAY,
-    driver::{ball::Ball, keyboard::KeyboardScanner},
-    keyboard::{keymap::KEYMAP, pressed::Pressed},
+    driver::{
+        ball::Ball,
+        keyboard::{Hand, KeyChangeEvent, KeyboardScanner},
+    },
+    keyboard::keymap::KEYMAP,
+    state::State,
     task::{
         led_task::{LedAnimation, LedControl, LedCtrl},
         usb_task::RemoteWakeupSignal,
     },
-    usb::{Hid, SUSPENDED},
+    usb::Hid,
 };
 
 use super::super::split::*;
@@ -24,6 +27,7 @@ pub struct MasterMainLoopResource<'a, 'b> {
     pub led_controller: &'a LedCtrl,
     pub hid: Hid<'a>,
     pub remote_wakeup_signal: &'a RemoteWakeupSignal,
+    pub hand: Hand,
 }
 
 /// Master-side main task.
@@ -36,6 +40,7 @@ pub(super) async fn start<'a, 'b>(
         led_controller,
         hid,
         remote_wakeup_signal,
+        hand,
     }: MasterMainLoopResource<'a, 'b>,
 ) {
     DISPLAY.set_master(true).await;
@@ -43,113 +48,73 @@ pub(super) async fn start<'a, 'b>(
     let (_kb_reader, mut kb_writer) = hid.keyboard.split();
     let (_mouse_reader, mut mouse_writer) = hid.mouse.split();
 
-    let mut empty_kb_sent = false;
-    let mut empty_mouse_sent = false;
     let mut empty_led_sent = false;
 
-    let mut master_pressed = Pressed::new();
-    let mut slave_pressed = Pressed::new();
+    let mut slave_events = heapless::Vec::<_, 16>::new();
 
-    let mut kb_state = KeyboardState::new(KEYMAP, scanner.hand);
+    let mut state = State::new(KEYMAP, hand);
 
     loop {
+        slave_events.clear();
+
         let start = embassy_time::Instant::now();
 
-        let mut mouse: Option<(i8, i8)> = None;
+        let mut mouse: (i8, i8) = (0, 0);
 
         while let Ok(cmd_from_slave) = s2m_rx.try_receive() {
             match cmd_from_slave {
                 SlaveToMaster::Pressed(row, col) => {
-                    slave_pressed.set_pressed(true, row, col);
+                    slave_events
+                        .push(KeyChangeEvent {
+                            col,
+                            row,
+                            pressed: true,
+                        })
+                        .ok();
                 }
                 SlaveToMaster::Released(row, col) => {
-                    slave_pressed.set_pressed(false, row, col);
+                    slave_events
+                        .push(KeyChangeEvent {
+                            col,
+                            row,
+                            pressed: false,
+                        })
+                        .ok();
                 }
                 SlaveToMaster::Mouse { x, y } => {
-                    if let Some(mouse) = &mut mouse {
-                        mouse.0 += x;
-                        mouse.1 += y;
-                    } else {
-                        mouse = Some((x, y));
-                    }
+                    mouse.0 += x;
+                    mouse.1 += y;
                 }
                 SlaveToMaster::Message(_) => {}
             }
         }
 
-        let (key_status, mouse_status) = join(
-            async {
-                scanner.scan_and_update(&mut master_pressed).await;
-                kb_state.update_and_report(&master_pressed, &slave_pressed)
-            },
-            async {
-                if let Some(ball) = &mut ball {
-                    if let Ok(Some((x, y))) = ball.read().await {
-                        if let Some(mouse) = &mut mouse {
-                            mouse.0 += x;
-                            mouse.1 += y;
-                        } else {
-                            mouse = Some((x, y));
-                        }
-                    }
+        let (mut master_events, _) = join(async { scanner.scan().await }, async {
+            if let Some(ball) = &mut ball {
+                if let Ok(Some((x, y))) = ball.read().await {
+                    mouse.0 += x;
+                    mouse.1 += y;
                 }
-                mouse
-            },
-        )
+            }
+        })
         .await;
 
-        join4(
-            async {
-                if !key_status.empty_keyboard_report {
-                    if SUSPENDED.load(core::sync::atomic::Ordering::Relaxed) {
-                        remote_wakeup_signal.signal(());
-                    }
+        let state_report = state.update(&mut master_events, &mut slave_events, &mouse);
 
-                    let _ = kb_writer.write_serialize(&key_status.keyboard_report).await;
-                    empty_kb_sent = false;
-                } else if !empty_kb_sent {
-                    let _ = kb_writer.write_serialize(&key_status.keyboard_report).await;
-                    empty_kb_sent = true;
-                }
+        join3(
+            async {
+                state_report.report(&mut kb_writer, &mut mouse_writer).await;
             },
             async {
-                let mut mouse_report = MouseReport {
-                    x: 0,
-                    y: 0,
-                    buttons: 0,
-                    pan: 0,
-                    wheel: 0,
-                };
-
-                if let Some((x, y)) = mouse_status {
-                    // なんか知らんけど逆
-                    mouse_report.x = y;
-                    mouse_report.y = x;
-                } else if key_status.mouse_button == 0 {
-                    return;
-                    // if !empty_mouse_sent {
-                    //     let _ = mouse_writer.write_serialize(&mouse_report).await;
-                    //     empty_mouse_sent = true;
-                    // } else {
-                    //     return;
-                    // }
-                }
-
-                mouse_report.buttons = key_status.mouse_button;
-
-                let _ = mouse_writer.write_serialize(&mouse_report).await;
-                empty_mouse_sent = false;
-            },
-            async {
-                if let Some((x, y)) = mouse_status {
-                    crate::DISPLAY.set_mouse_pos(x, y).await;
+                if let Some(rp) = state_report.mouse_report {
+                    crate::DISPLAY.set_mouse_pos(rp.x, rp.y).await;
                 }
                 crate::DISPLAY
-                    .set_highest_layer(key_status.highest_layer as u8)
+                    .set_highest_layer(state_report.highest_layer)
                     .await;
             },
             async {
-                if key_status.highest_layer == 1 {
+                if state_report.highest_layer == 1 {
                     let led = LedControl::Start(LedAnimation::SolidColor(50, 0, 0));
                     led_controller.signal(led.clone());
                     let _ = m2s_tx.try_send(MasterToSlave::Led(led));

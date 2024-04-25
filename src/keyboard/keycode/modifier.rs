@@ -2,7 +2,7 @@ use super::macros::with_consts;
 
 with_consts!(
     Modifier,
-    #[derive(PartialEq, Eq, Clone, Copy)]
+    #[derive(PartialEq, Eq, Clone, Copy, Debug)]
     pub enum Modifier {
         LCtrl = 0x01,
         LShft = 0x02,

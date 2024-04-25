@@ -7,7 +7,7 @@ pub mod modifier;
 pub mod mouse;
 pub mod special;
 
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum KeyCode {
     Modifier(modifier::Modifier),
     Mouse(mouse::Mouse),
@@ -16,7 +16,7 @@ pub enum KeyCode {
     Layer(layer::Layer),
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum KeyAction {
     None,
     Inherit,
