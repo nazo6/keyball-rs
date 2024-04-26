@@ -1,7 +1,4 @@
-use super::{
-    macros::{normal, with_consts},
-    KeyAction,
-};
+use super::macros::{normal, with_consts};
 
 with_consts!(
     Key,

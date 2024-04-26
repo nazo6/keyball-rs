@@ -882,6 +882,7 @@ dependencies = [
 name = "keyball-embassy-rp2040"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.5.0",
  "cortex-m",
  "cortex-m-rt",
  "defmt",

@@ -2,41 +2,35 @@ use crate::constant::{COLS, ROWS};
 
 pub mod key;
 pub mod layer;
-mod macros;
+pub mod macros;
 pub mod modifier;
 pub mod mouse;
 pub mod special;
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub enum KeyCode {
-    Modifier(modifier::Modifier),
-    Mouse(mouse::Mouse),
     Key(key::Key),
+    Mouse(mouse::Mouse),
+    Modifier(modifier::Modifier),
+    WithModifier(modifier::Modifier, key::Key),
+    Layer(layer::LayerOp),
     Special(special::Special),
-    Layer(layer::Layer),
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub enum KeyAction {
-    None,
-    Inherit,
-    Normal(KeyCode),
     Tap(KeyCode),
     TapHold(KeyCode, KeyCode),
 }
 
-pub enum KeyCode2 {
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
+pub enum KeyDef {
     None,
     Inherit,
-    Normal(key::Key),
-    Modifier(modifier::Modifier),
-    WithModifier(modifier::Modifier, key::Key),
-    Mouse(mouse::Mouse),
-    Special(special::Special),
-    ModTap(modifier::Modifier, key::Key),
-    Layer(layer::Layer),
+    Key(KeyAction),
 }
 
-pub const _____: KeyAction = KeyAction::Inherit;
+pub const _____: KeyDef = KeyDef::Inherit;
+pub const XXXXX: KeyDef = KeyDef::None;
 
-pub type Layer = [[KeyAction; COLS * 2]; ROWS];
+pub type Layer = [[KeyDef; COLS * 2]; ROWS];

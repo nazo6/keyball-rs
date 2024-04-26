@@ -1,5 +1,3 @@
-use core::fmt::{self, Formatter};
-
 use embassy_time::{Duration, Instant};
 
 use crate::{
@@ -65,30 +63,23 @@ impl AllPressed {
                         .ok();
                     *key_state = None;
                 }
-                (true, Some(pressed_time)) => {
-                    composed
-                        .push(KeyStatusUpdateEvent {
-                            row: event.row,
-                            col: event.col,
-                            change_type: KeyStatusChangeType::Pressing(update_time - *pressed_time),
-                        })
-                        .ok();
-                    *key_state = Some(update_time);
-                }
-                (false, None) => {}
+                _ => {}
+            }
+        }
+
+        for (row, col, press_start) in self.iter() {
+            if !composed.iter().any(|e| e.row == row && e.col == col) {
+                composed
+                    .push(KeyStatusUpdateEvent {
+                        row,
+                        col,
+                        change_type: KeyStatusChangeType::Pressing(update_time - *press_start),
+                    })
+                    .ok();
             }
         }
 
         composed
-    }
-}
-
-impl core::fmt::Debug for AllPressed {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        for (row, col) in self.iter() {
-            write!(f, "{},{} ", row, col)?;
-        }
-        Ok(())
     }
 }
 
@@ -99,19 +90,19 @@ pub struct PressedIter<'a> {
 }
 
 impl<'a> Iterator for PressedIter<'a> {
-    type Item = (u8, u8);
+    type Item = (u8, u8, &'a Instant);
     fn next(&mut self) -> Option<Self::Item> {
         for i in self.idx_row..ROWS {
             for j in self.idx_col..(COLS * 2) {
                 let key_state = &self.pressed.state[i][j];
-                if key_state.is_some() {
+                if let Some(press_start) = key_state {
                     self.idx_row = i;
                     self.idx_col = j + 1;
 
                     let row = i as u8;
                     let col = j as u8;
 
-                    return Some((row, col));
+                    return Some((row, col, press_start));
                 }
             }
             self.idx_col = 0;

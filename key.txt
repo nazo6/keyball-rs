@@ -2,40 +2,47 @@ o: 送信する
 x: 送信しない
 その他: 特殊処理
 
-Inheritはこの前に解決しておく
-
+Inheritはこの前に解決
 - Pressed
-  - Normal        o
-  - Modifier      o
-  - WithModifier  o
-  - Mouse         o
-  - ModTap        Modを送信
-  - Layer
-    - Temp        レイヤ有効化
-    - Toggle      x
-  - Special
-    - MoScrl      スクロールモードオン
+  - Action
+    - Normal        o
+    - Tap           o
+    - TapHold       Hold送信
+    - DoubleTap     x
+  - KeyCode
+    - Key           o
+    - Mouse         o
+    - Modifier      o
+    - WithModifier  o
+    - LayerMove     レイヤ有効化
+    - LayerToggle   x
 
 - Pressing
-  - Normal        o
-  - Modifier      o
-  - WithModifier  o
-  - Mouse         o
-  - ModTap        Modを送信
-  - Layer
-    - Temp        x
-    - Toggle      x
-  - Special
-    - MoScrl      x
+  - Action
+    - Normal        o
+    - Tap           x
+    - TapHold       TAPPING_TERM以下: Hold送信
+                    HOLDING_TERM以上: Hold送信
+                    それ以外: 
+    - DoubleTap     x
+  - KeyCode
+    - Key           o
+    - Mouse         o
+    - Modifier      o
+    - WithModifier  o
+    - LayerMove     レイヤ有効化
+    - LayerToggle   x
 
 - Released
-  - Normal        x
-  - Modifier      x
-  - WithModifier  x
-  - Mouse         x
-  - ModTap        x
-  - Layer
-    - Temp        レイヤ無効化
-    - Toggle      o
-  - Special
-    - MoScrl      スクロールモードオフ
+  - Action
+    - Normal        o
+    - Tap           o
+    - TapHold       Hold送信
+    - DoubleTap     x
+  - KeyCode
+    - Key           o
+    - Mouse         o
+    - Modifier      o
+    - WithModifier  o
+    - LayerMove     レイヤ有効化
+    - LayerToggle   x

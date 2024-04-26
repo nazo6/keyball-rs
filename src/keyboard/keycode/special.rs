@@ -1,4 +1,4 @@
-use super::{macros::with_consts_no_val, KeyCode};
+use super::macros::with_consts_no_val;
 
 with_consts_no_val!(
     Special,
