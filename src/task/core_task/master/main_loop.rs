@@ -1,8 +1,10 @@
-use embassy_futures::join::{join, join3};
+use embassy_futures::join::join;
+use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Sender};
 use embassy_time::Timer;
+use usbd_hid::descriptor::{KeyboardReport, MouseReport};
 
 use crate::{
-    constant::MIN_SCAN_INTERVAL,
+    constant::MIN_KB_SCAN_INTERVAL,
     display::DISPLAY,
     driver::{
         ball::Ball,
@@ -14,7 +16,6 @@ use crate::{
         led_task::{LedAnimation, LedControl, LedCtrl},
         usb_task::RemoteWakeupSignal,
     },
-    usb::Hid,
 };
 
 use super::super::split::*;
@@ -25,9 +26,10 @@ pub struct MasterMainLoopResource<'a, 'b> {
     pub s2m_rx: S2mRx<'b>,
     pub m2s_tx: M2sTx<'b>,
     pub led_controller: &'a LedCtrl,
-    pub hid: Hid<'a>,
     pub remote_wakeup_signal: &'a RemoteWakeupSignal,
     pub hand: Hand,
+    pub kb_report_tx: Sender<'a, ThreadModeRawMutex, KeyboardReport, 10>,
+    pub mouse_report_tx: Sender<'a, ThreadModeRawMutex, MouseReport, 10>,
 }
 
 /// Master-side main task.
@@ -38,17 +40,15 @@ pub(super) async fn start<'a, 'b>(
         s2m_rx,
         m2s_tx,
         led_controller,
-        hid,
         remote_wakeup_signal,
         hand,
+        kb_report_tx,
+        mouse_report_tx,
     }: MasterMainLoopResource<'a, 'b>,
 ) {
     DISPLAY.set_master(true).await;
 
-    let (_kb_reader, mut kb_writer) = hid.keyboard.split();
-    let (_mouse_reader, mut mouse_writer) = hid.mouse.split();
-
-    let mut empty_led_sent = false;
+    let mut latest_led: Option<LedControl> = None;
 
     let mut slave_events = heapless::Vec::<_, 16>::new();
 
@@ -101,10 +101,7 @@ pub(super) async fn start<'a, 'b>(
 
         let state_report = state.update(&mut master_events, &mut slave_events, &mouse);
 
-        join3(
-            async {
-                state_report.report(&mut kb_writer, &mut mouse_writer).await;
-            },
+        join(
             async {
                 if let Some(rp) = state_report.mouse_report {
                     crate::DISPLAY.set_mouse_pos(rp.x, rp.y).await;
@@ -114,25 +111,42 @@ pub(super) async fn start<'a, 'b>(
                     .await;
             },
             async {
-                // if state_report.highest_layer == 1 {
-                //     let led = LedControl::Start(LedAnimation::SolidColor(50, 0, 0));
-                //     led_controller.signal(led.clone());
-                //     let _ = m2s_tx.try_send(MasterToSlave::Led(led));
-                //     empty_led_sent = false;
-                // } else if !empty_led_sent {
-                //     let led = LedControl::Start(LedAnimation::SolidColor(0, 0, 0));
-                //     led_controller.signal(led.clone());
-                //     let _ = m2s_tx.try_send(MasterToSlave::Led(led));
-                //     empty_led_sent = true;
-                // }
+                let led = if state_report.highest_layer == 1 {
+                    LedControl::Start(LedAnimation::SolidColor(50, 0, 0))
+                } else {
+                    LedControl::Start(LedAnimation::SolidColor(0, 0, 0))
+                };
+
+                if let Some(latest_led) = &latest_led {
+                    if led != *latest_led {
+                        led_controller.signal(led.clone());
+                        let _ = m2s_tx.try_send(MasterToSlave::Led(led.clone()));
+                    }
+                }
+
+                latest_led = Some(led);
+            },
+        )
+        .await;
+
+        join(
+            async {
+                if let Some(report) = state_report.keyboard_report {
+                    let _ = kb_report_tx.try_send(report);
+                }
+            },
+            async {
+                if let Some(report) = state_report.mouse_report {
+                    let _ = mouse_report_tx.try_send(report);
+                }
             },
         )
         .await;
 
         let took = start.elapsed().as_micros();
         // crate::print!("{} {} {}\n", d1, d2, took);
-        if took < MIN_SCAN_INTERVAL {
-            Timer::after_micros(MIN_SCAN_INTERVAL * 1000 - took).await;
+        if took < MIN_KB_SCAN_INTERVAL {
+            Timer::after_micros(MIN_KB_SCAN_INTERVAL * 1000 - took).await;
         }
     }
 }

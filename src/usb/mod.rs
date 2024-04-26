@@ -58,7 +58,7 @@ pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> Usb
         let config = embassy_usb::class::hid::Config {
             report_descriptor: KeyboardReport::desc(),
             request_handler: Some(opts.request_handler),
-            poll_ms: 20,
+            poll_ms: 10,
             max_packet_size: 64,
         };
         HidReaderWriter::<_, 1, 8>::new(&mut builder, opts.state_kb, config)
@@ -67,7 +67,7 @@ pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> Usb
         let config = embassy_usb::class::hid::Config {
             report_descriptor: MouseReport::desc(),
             request_handler: Some(opts.request_handler),
-            poll_ms: 20,
+            poll_ms: 4,
             max_packet_size: 64,
         };
         HidReaderWriter::<_, 1, 8>::new(&mut builder, opts.state_mouse, config)

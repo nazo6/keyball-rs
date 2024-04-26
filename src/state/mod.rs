@@ -4,7 +4,9 @@ use embassy_time::Instant;
 use usbd_hid::descriptor::{KeyboardReport, MouseReport};
 
 use crate::{
-    constant::{AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS, TAP_THRESHOLD},
+    constant::{
+        AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS, SCROLL_DIVIDER, TAP_THRESHOLD,
+    },
     driver::keyboard::{Hand, KeyChangeEventOneHand},
     keyboard::keycode::{layer::LayerOp, special::Special, KeyCode, KeyDef, Layer},
 };
@@ -155,7 +157,7 @@ impl State {
             }
         }
 
-        if *mouse_event != (0, 0) || mouse_buttons != 0 {
+        if *mouse_event != (0, 0) || mouse_buttons != 0 || self.scroll_mode {
             self.layer_active[AUTO_MOUSE_LAYER] = true;
             self.auto_mouse_start = Some(now);
         } else if let Some(start) = self.auto_mouse_start {
@@ -184,8 +186,8 @@ impl State {
                     x: 0,
                     y: 0,
                     buttons: mouse_buttons,
-                    wheel: mouse_event.1,
-                    pan: mouse_event.0,
+                    wheel: mouse_event.0 / SCROLL_DIVIDER,
+                    pan: mouse_event.1 / SCROLL_DIVIDER,
                 })
             } else {
                 Some(MouseReport {

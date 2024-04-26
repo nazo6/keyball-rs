@@ -2,7 +2,7 @@ use embassy_futures::join::join;
 use embassy_time::Timer;
 
 use crate::{
-    constant::MIN_SCAN_INTERVAL,
+    constant::{MIN_KB_SCAN_INTERVAL, MIN_MOUSE_SCAN_INTERVAL},
     driver::{ball::Ball, keyboard::KeyboardScanner},
 };
 
@@ -21,11 +21,32 @@ pub(super) async fn start(
         s2m_tx,
     }: SlaveMainLoopResource<'_>,
 ) {
-    loop {
-        let start = embassy_time::Instant::now();
+    join(
+        async {
+            if let Some(ball) = &mut ball {
+                loop {
+                    let start = embassy_time::Instant::now();
 
-        join(
-            async {
+                    if let Ok(Some(data)) = ball.read().await {
+                        let e = SlaveToMaster::Mouse {
+                            // x and y are swapped
+                            x: data.0,
+                            y: data.1,
+                        };
+                        s2m_tx.send(e).await;
+                    }
+
+                    let took = start.elapsed().as_millis();
+                    if took < MIN_MOUSE_SCAN_INTERVAL {
+                        Timer::after_millis(MIN_MOUSE_SCAN_INTERVAL - took).await;
+                    }
+                }
+            }
+        },
+        async {
+            loop {
+                let start = embassy_time::Instant::now();
+
                 let key_events = scanner.scan().await;
 
                 for event in key_events {
@@ -35,30 +56,15 @@ pub(super) async fn start(
                         SlaveToMaster::Released(event.row, event.col)
                     };
 
-                    crate::print!("S2M: {:?}\n", event);
-
                     s2m_tx.send(event).await;
                 }
-            },
-            async {
-                if let Some(ball) = &mut ball {
-                    if let Ok(Some(data)) = ball.read().await {
-                        let e = SlaveToMaster::Mouse {
-                            // x and y are swapped
-                            x: data.0,
-                            y: data.1,
-                        };
-                        crate::print!("S2M: {:?}\n", e);
-                        s2m_tx.send(e).await;
-                    }
-                }
-            },
-        )
-        .await;
 
-        let took = start.elapsed().as_millis();
-        if took < MIN_SCAN_INTERVAL {
-            Timer::after_millis(MIN_SCAN_INTERVAL - took).await;
-        }
-    }
+                let took = start.elapsed().as_millis();
+                if took < MIN_KB_SCAN_INTERVAL {
+                    Timer::after_millis(MIN_KB_SCAN_INTERVAL - took).await;
+                }
+            }
+        },
+    )
+    .await;
 }

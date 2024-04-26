@@ -10,13 +10,13 @@ use crate::{
 
 use super::LedPeripherals;
 
-#[derive(Archive, Deserialize, Serialize, Debug, Clone)]
+#[derive(Archive, Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub enum LedControl {
     Start(LedAnimation),
     Reset,
 }
 
-#[derive(Archive, Deserialize, Serialize, Debug, Clone)]
+#[derive(Archive, Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub enum LedAnimation {
     Rainbow,
     Blink,
