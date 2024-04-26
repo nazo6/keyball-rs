@@ -92,8 +92,17 @@ impl State {
                     KeyAction::Tap(kc) => Some(kc),
                     _ => None,
                 },
-                KeyStatusChangeType::Pressing(duration)
-                | KeyStatusChangeType::Released(duration) => match key_action {
+                KeyStatusChangeType::Pressing(duration) => match key_action {
+                    KeyAction::Tap(kc) => Some(kc),
+                    KeyAction::TapHold(tkc, hkc) => {
+                        if duration.as_millis() > TAP_THRESHOLD {
+                            Some(hkc)
+                        } else {
+                            None
+                        }
+                    }
+                },
+                KeyStatusChangeType::Released(duration) => match key_action {
                     KeyAction::Tap(kc) => Some(kc),
                     KeyAction::TapHold(tkc, hkc) => {
                         if duration.as_millis() > TAP_THRESHOLD {
@@ -107,39 +116,26 @@ impl State {
                 continue;
             };
 
-            match event.change_type {
-                KeyStatusChangeType::Pressed | KeyStatusChangeType::Pressing(_) => match kc {
-                    KeyCode::Key(key) => {
-                        if keycodes_idx < 6 {
-                            keycodes[keycodes_idx] = key as u8;
-                            keycodes_idx += 1;
-                        }
+            match kc {
+                KeyCode::Key(key) => {
+                    if keycodes_idx < 6 {
+                        keycodes[keycodes_idx] = key as u8;
+                        keycodes_idx += 1;
                     }
-                    KeyCode::Mouse(btn) => mouse_buttons |= btn.bits(),
-                    KeyCode::Modifier(mod_key) => {
+                }
+                KeyCode::Mouse(btn) => mouse_buttons |= btn.bits(),
+                KeyCode::Modifier(mod_key) => {
+                    modifier |= mod_key.bits();
+                }
+                KeyCode::WithModifier(mod_key, key) => {
+                    if keycodes_idx < 6 {
+                        keycodes[keycodes_idx] = key as u8;
                         modifier |= mod_key.bits();
+                        keycodes_idx += 1;
                     }
-                    KeyCode::WithModifier(mod_key, key) => {
-                        if keycodes_idx < 6 {
-                            keycodes[keycodes_idx] = key as u8;
-                            modifier |= mod_key.bits();
-                            keycodes_idx += 1;
-                        }
-                    }
-                    KeyCode::Layer(layer_op) => match layer_op {
-                        LayerOp::Move(l) => {
-                            self.layer_active[l] = true;
-                        }
-                        _ => {}
-                    },
-                    KeyCode::Special(special_op) => match special_op {
-                        Special::MoScrl => {
-                            self.scroll_mode = true;
-                        }
-                    },
-                },
-                KeyStatusChangeType::Released(_) => match kc {
-                    KeyCode::Layer(layer_op) => match layer_op {
+                }
+                KeyCode::Layer(layer_op) => match event.change_type {
+                    KeyStatusChangeType::Released(_) => match layer_op {
                         LayerOp::Move(l) => {
                             self.layer_active[l] = false;
                         }
@@ -147,14 +143,26 @@ impl State {
                             self.layer_active[l] = !self.layer_active[l];
                         }
                     },
-                    KeyCode::Special(special_op) => match special_op {
+                    _ => match layer_op {
+                        LayerOp::Move(l) => {
+                            self.layer_active[l] = true;
+                        }
+                        _ => {}
+                    },
+                },
+                KeyCode::Special(special_op) => match event.change_type {
+                    KeyStatusChangeType::Released(_) => match special_op {
                         Special::MoScrl => {
                             self.scroll_mode = false;
                         }
                     },
-                    _ => {}
+                    _ => match special_op {
+                        Special::MoScrl => {
+                            self.scroll_mode = true;
+                        }
+                    },
                 },
-            }
+            };
         }
 
         if *mouse_event != (0, 0) || mouse_buttons != 0 || self.scroll_mode {
