@@ -52,6 +52,7 @@ impl GlobalDisplay {
     }
 
     pub async fn set_message(&self, str: &str) {
+        update_display!(self, "                    ", 1, 3);
         update_display!(self, str, 1, 3);
     }
 

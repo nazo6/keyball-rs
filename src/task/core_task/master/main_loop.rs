@@ -98,28 +98,28 @@ pub(super) async fn start<'a, 'b>(
 
         join(
             async {
-                // if let Some(rp) = state_report.mouse_report {
-                //     crate::DISPLAY.set_mouse_pos(rp.x, rp.y).await;
-                // }
-                // crate::DISPLAY
-                //     .set_highest_layer(state_report.highest_layer)
-                //     .await;
+                if let Some(rp) = state_report.mouse_report {
+                    crate::DISPLAY.set_mouse_pos(rp.x, rp.y).await;
+                }
+                crate::DISPLAY
+                    .set_highest_layer(state_report.highest_layer)
+                    .await;
             },
             async {
-                let led = if state_report.highest_layer == 1 {
-                    LedControl::Start(LedAnimation::SolidColor(50, 0, 0))
-                } else {
-                    LedControl::Start(LedAnimation::SolidColor(0, 0, 0))
-                };
-
-                if let Some(latest_led) = &latest_led {
-                    if led != *latest_led {
-                        led_controller.signal(led.clone());
-                        let _ = m2s_tx.try_send(MasterToSlave::Led(led.clone()));
-                    }
-                }
-
-                latest_led = Some(led);
+                // let led = if state_report.highest_layer == 1 {
+                //     LedControl::Start(LedAnimation::SolidColor(50, 0, 0))
+                // } else {
+                //     LedControl::Start(LedAnimation::SolidColor(0, 0, 0))
+                // };
+                //
+                // if let Some(latest_led) = &latest_led {
+                //     if led != *latest_led {
+                //         led_controller.signal(led.clone());
+                //         let _ = m2s_tx.try_send(MasterToSlave::Led(led.clone()));
+                //     }
+                // }
+                //
+                // latest_led = Some(led);
             },
         )
         .await;

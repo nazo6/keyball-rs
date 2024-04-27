@@ -1,11 +1,14 @@
 #![allow(clippy::single_match)]
 
+use core::array::from_fn;
+
 use embassy_time::Instant;
 use usbd_hid::descriptor::{KeyboardReport, MouseReport};
 
 use crate::{
     constant::{
-        AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS, SCROLL_DIVIDER, TAP_THRESHOLD,
+        AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS, SCROLL_DIVIDER_X,
+        SCROLL_DIVIDER_Y, TAP_THRESHOLD,
     },
     driver::keyboard::{Hand, KeyChangeEventOneHand},
     keyboard::keycode::{layer::LayerOp, special::Special, KeyCode, KeyDef, Layer},
@@ -21,6 +24,11 @@ use super::keyboard::keycode::KeyAction;
 mod all_pressed;
 pub mod report;
 
+#[derive(Default)]
+pub struct KeyState {
+    normal_key_pressed: bool,
+}
+
 pub struct State {
     master_hand: Hand,
 
@@ -28,6 +36,7 @@ pub struct State {
     layer_active: [bool; LAYER_NUM],
 
     pressed: AllPressed,
+    key_state: [[KeyState; COLS * 2]; ROWS],
 
     auto_mouse_start: Option<Instant>,
     // scoll_modeがonのときにSomeとなり、中身には「残っているスクロール」の値が入る。
@@ -47,6 +56,7 @@ impl State {
             layer_active: [false; LAYER_NUM],
 
             pressed: AllPressed::new(),
+            key_state: from_fn(|_| from_fn(|_| KeyState::default())),
 
             auto_mouse_start: None,
             scroll_mode: None,
@@ -76,6 +86,13 @@ impl State {
         let split_events = right_events.iter().chain(left_events.iter());
 
         let events = self.pressed.compose_events(split_events, now);
+        let events = events
+            .into_iter()
+            .filter_map(|e| {
+                let ka = self.get_keycode(e.row, e.col)?;
+                Some((ka, e))
+            })
+            .collect::<heapless::Vec<_, 32>>();
 
         let mut keycodes = [0; 6];
         let mut keycodes_idx = 0;
@@ -84,11 +101,12 @@ impl State {
 
         let mut mouse_buttons = 0;
 
-        for event in events {
-            let Some(key_action) = self.get_keycode(event.row, event.col) else {
-                continue;
-            };
+        // - 自動マウスレイヤ即時無効化判定
+        // - TapHoldの強制Hold化判定
+        // に使用
+        let mut normal_key_pressed_enable = false;
 
+        for (key_action, event) in events.iter() {
             let Some(kc) = (match event.change_type {
                 KeyStatusChangeType::Pressed => match key_action {
                     KeyAction::Tap(kc) => Some(kc),
@@ -120,8 +138,11 @@ impl State {
 
             match kc {
                 KeyCode::Key(key) => {
+                    if let KeyStatusChangeType::Pressed = event.change_type {
+                        normal_key_pressed_enable = true;
+                    }
                     if keycodes_idx < 6 {
-                        keycodes[keycodes_idx] = key as u8;
+                        keycodes[keycodes_idx] = *key as u8;
                         keycodes_idx += 1;
                     }
                 }
@@ -131,7 +152,7 @@ impl State {
                 }
                 KeyCode::WithModifier(mod_key, key) => {
                     if keycodes_idx < 6 {
-                        keycodes[keycodes_idx] = key as u8;
+                        keycodes[keycodes_idx] = *key as u8;
                         modifier |= mod_key.bits();
                         keycodes_idx += 1;
                     }
@@ -139,15 +160,15 @@ impl State {
                 KeyCode::Layer(layer_op) => match event.change_type {
                     KeyStatusChangeType::Released(_) => match layer_op {
                         LayerOp::Move(l) => {
-                            self.layer_active[l] = false;
+                            self.layer_active[*l] = false;
                         }
                         LayerOp::Toggle(l) => {
-                            self.layer_active[l] = !self.layer_active[l];
+                            self.layer_active[*l] = !self.layer_active[*l];
                         }
                     },
                     _ => match layer_op {
                         LayerOp::Move(l) => {
-                            self.layer_active[l] = true;
+                            self.layer_active[*l] = true;
                         }
                         _ => {}
                     },
@@ -196,10 +217,10 @@ impl State {
             if let Some((remained_wheel, remained_pan)) = &mut self.scroll_mode {
                 let wheel_raw = mouse_event.0 + *remained_wheel;
                 let pan_raw = mouse_event.1 + *remained_pan;
-                let wheel = wheel_raw / SCROLL_DIVIDER;
-                let pan = pan_raw / SCROLL_DIVIDER;
-                *remained_wheel = wheel_raw % SCROLL_DIVIDER;
-                *remained_pan = pan_raw % SCROLL_DIVIDER;
+                let wheel = wheel_raw / SCROLL_DIVIDER_Y;
+                let pan = pan_raw / SCROLL_DIVIDER_X;
+                *remained_wheel = wheel_raw % SCROLL_DIVIDER_Y;
+                *remained_pan = pan_raw % SCROLL_DIVIDER_X;
                 Some(MouseReport {
                     x: 0,
                     y: 0,

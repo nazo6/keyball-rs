@@ -1,4 +1,4 @@
-use crate::constant::{LEFT_DETECT_JUMPER_KEY, SCAN_COLS, SCAN_ROWS};
+use crate::constant::{COL_PIN_NUM, LEFT_DETECT_JUMPER_KEY, SCAN_PIN_NUM};
 use crate::device::gpio::{Flex, Pull};
 use crate::device::peripherals::KeyboardPeripherals;
 
@@ -16,8 +16,8 @@ pub struct KeyChangeEventOneHand {
 }
 
 pub struct KeyboardScanner<'a> {
-    rows: [Flex<'a>; SCAN_ROWS],
-    cols: [Flex<'a>; SCAN_COLS],
+    rows: [Flex<'a>; SCAN_PIN_NUM],
+    cols: [Flex<'a>; COL_PIN_NUM],
     pub pressed: Pressed,
 }
 

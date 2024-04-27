@@ -115,7 +115,7 @@ impl<'a> Communicate<'a> {
             yield_now().await;
         }
 
-        Timer::after_micros(100).await;
+        Timer::after_micros(300).await;
 
         self.tx_sm.set_enable(false);
         self.pin.set_drive_strength(embassy_rp::gpio::Drive::_2mA);
