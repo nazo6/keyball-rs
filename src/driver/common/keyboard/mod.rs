@@ -4,7 +4,6 @@ use crate::device::peripherals::KeyboardPeripherals;
 
 mod hand;
 mod pressed;
-use embassy_time::Timer;
 pub use hand::Hand;
 
 use self::pressed::Pressed;

@@ -1,4 +1,4 @@
-use embassy_futures::join::{join, join3};
+use embassy_futures::join::join3;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Channel};
 use usbd_hid::descriptor::{KeyboardReport, MouseReport};
 
@@ -41,13 +41,18 @@ pub async fn start(r: CoreTaskResource<'_>) {
             s2m_rx,
             m2s_tx,
             led_controller: r.led_controller,
-            remote_wakeup_signal: r.remote_wakeup_signal,
             hand: r.hand,
             mouse_report_tx,
             kb_report_tx,
         }),
         split_handler::start(r.split_peripherals, m2s_rx, s2m_tx),
-        report::start(kb_report_rx, mouse_report_rx, kb_writer, mouse_writer),
+        report::start(
+            kb_report_rx,
+            mouse_report_rx,
+            kb_writer,
+            mouse_writer,
+            r.remote_wakeup_signal,
+        ),
     )
     .await;
 }
