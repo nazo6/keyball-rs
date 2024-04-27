@@ -12,10 +12,7 @@ use crate::{
     },
     keyboard::keymap::KEYMAP,
     state::State,
-    task::{
-        led_task::{LedAnimation, LedControl, LedCtrl},
-        usb_task::RemoteWakeupSignal,
-    },
+    task::led_task::{LedAnimation, LedControl, LedCtrl},
 };
 
 use super::super::split::*;

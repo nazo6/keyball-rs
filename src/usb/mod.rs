@@ -14,14 +14,15 @@ pub struct Hid<'a> {
     pub mouse: HidReaderWriter<'a, DeviceDriver<'a>, 1, 8>,
 }
 
-pub struct UsbOpts<'a, RH: RequestHandler, DH: Handler> {
+pub struct UsbOpts<'a> {
     pub driver: DeviceDriver<'a>,
     pub config_descriptor: &'a mut [u8],
     pub bos_descriptor: &'a mut [u8],
     pub msos_descriptor: &'a mut [u8],
     pub control_buf: &'a mut [u8],
-    pub request_handler: &'a RH,
-    pub device_handler: &'a mut DH,
+    pub kb_request_handler: &'a mut dyn RequestHandler,
+    pub mouse_request_handler: &'a mut dyn RequestHandler,
+    pub device_handler: &'a mut dyn Handler,
     pub state_kb: &'a mut State<'a>,
     pub state_mouse: &'a mut State<'a>,
 }
@@ -33,7 +34,7 @@ pub struct UsbResource<'a> {
 
 pub static SUSPENDED: AtomicBool = AtomicBool::new(false);
 
-pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> UsbResource {
+pub fn create_usb(opts: UsbOpts) -> UsbResource {
     // Create embassy-usb Config
     let mut config = Config::new(0xc0de, 0xcafe);
     config.manufacturer = Some("Yowkees/nazo6");
@@ -57,7 +58,7 @@ pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> Usb
     let keyboard_hid = {
         let config = embassy_usb::class::hid::Config {
             report_descriptor: KeyboardReport::desc(),
-            request_handler: Some(opts.request_handler),
+            request_handler: Some(opts.kb_request_handler),
             poll_ms: 10,
             max_packet_size: 64,
         };
@@ -66,7 +67,7 @@ pub fn create_usb<RH: RequestHandler, DH: Handler>(opts: UsbOpts<RH, DH>) -> Usb
     let mouse_hid = {
         let config = embassy_usb::class::hid::Config {
             report_descriptor: MouseReport::desc(),
-            request_handler: Some(opts.request_handler),
+            request_handler: Some(opts.mouse_request_handler),
             poll_ms: 4,
             max_packet_size: 64,
         };

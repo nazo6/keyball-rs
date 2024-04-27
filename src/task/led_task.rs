@@ -1,7 +1,7 @@
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 
 use rkyv::{Archive, Deserialize, Serialize};
-use smart_leds::{hsv::hsv2rgb as hsv2rgb_orig, RGB8};
+use smart_leds::RGB8;
 
 use crate::{
     constant::{LEFT_LED_NUM, RIGHT_LED_NUM},
@@ -22,15 +22,6 @@ pub enum LedAnimation {
     Blink,
     // Color (hsv)
     SolidColor(u8, u8, u8),
-}
-
-fn hsv2rgb(h: u8, s: u8, v: u8) -> RGB8 {
-    let hsv = smart_leds::hsv::Hsv {
-        hue: h,
-        sat: s,
-        val: v,
-    };
-    hsv2rgb_orig(hsv)
 }
 
 pub type LedCtrl = Signal<ThreadModeRawMutex, LedControl>;
