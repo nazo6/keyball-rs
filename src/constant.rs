@@ -11,7 +11,7 @@ pub const SCAN_COLS: usize = 4;
 pub const SCAN_ROWS: usize = 5;
 
 /// Time (msec) to wait for the next scan
-pub const MIN_KB_SCAN_INTERVAL: u64 = 20;
+pub const MIN_KB_SCAN_INTERVAL: u64 = 10;
 pub const MIN_MOUSE_SCAN_INTERVAL: u64 = 5;
 
 // Number of columns for one hand

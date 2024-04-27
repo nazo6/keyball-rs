@@ -14,10 +14,10 @@ pub const L2ENTER: KeyDef = KeyDef::Key(KeyAction::TapHold(
 
 #[rustfmt::skip]
 const L0: Layer = [
-    [ _____ , D1    , D2    , D3    , D4    , D5    , _____ , /**/ _____ , D6    , D7    , D8    , D9    ,D0    ,JBSLSH2],
+    [ JZNHN , D1    , D2    , D3    , D4    , D5    , _____ , /**/ _____ , D6    , D7    , D8    , D9    ,D0    ,JBSLSH2],
     [  TAB  , Q     , W     , E     , R     , T     , _____ , /**/ _____ , Y     , U     , I     , O     ,P     , MINUS ],
     [  ESC  , A     , S     , D     , F     , G     , _____ , /**/ _____ , H     , J     , K     , L     ,SEMI  , JCOLN ],
-    [ L_SHFT, Z     , X     , C     , V     , B     , LBRC  , /**/ RBRC  , N     , M     , COMM  , DOT   ,SLASH ,JBSLSH ],
+    [ L_SHFT, Z     , X     , C     , V     , B     , JLBRC , /**/ JRBRC , N     , M     , COMM  , DOT   ,SLASH ,JBSLSH ],
     [ L_CTRL, L_GUI , _____ , TG(2) , L_ALT , SPACE , SPACE , /**/ BS    ,L2ENTER, _____ , _____ , _____ ,JCARET, JAT   ],
 ];
 

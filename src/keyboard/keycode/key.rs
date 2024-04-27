@@ -242,3 +242,5 @@ normal!(JCARET, Key, Equal);
 normal!(JZNHN, Key, Grave);
 normal!(JHNKN, Key, International4);
 normal!(JMHNKN, Key, International5);
+normal!(JLBRC, Key, RightBracket);
+normal!(JRBRC, Key, NonUsHash);
