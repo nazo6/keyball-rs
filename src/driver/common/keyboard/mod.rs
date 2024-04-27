@@ -4,6 +4,7 @@ use crate::device::peripherals::KeyboardPeripherals;
 
 mod hand;
 mod pressed;
+use embassy_time::Timer;
 pub use hand::Hand;
 
 use self::pressed::Pressed;
@@ -50,21 +51,22 @@ impl<'a> KeyboardScanner<'a> {
             events.push(e).ok();
         })
         .await;
+        crate::print!("{:?}                     ", self.pressed);
         events
     }
 
     async fn scan_with_cb(&mut self, mut cb: impl FnMut(KeyChangeEventOneHand)) {
         // col -> row scan
         {
+            for row in self.rows.iter_mut() {
+                row.set_as_input();
+                row.set_pull(Pull::Down);
+            }
+
             for (j, col) in self.cols.iter_mut().enumerate() {
                 // col -> rowスキャンではcol=3は該当キーなし
                 if j == 3 {
                     continue;
-                }
-
-                for row in self.rows.iter_mut() {
-                    row.set_as_input();
-                    row.set_pull(Pull::Down);
                 }
 
                 col.set_as_output();
@@ -73,8 +75,8 @@ impl<'a> KeyboardScanner<'a> {
                 col.wait_for_high().await;
 
                 for (i, row) in self.rows.iter_mut().enumerate() {
-                    let state = row.is_high();
-                    if let Some(change) = self.pressed.set_pressed(state, i as u8, j as u8) {
+                    if let Some(change) = self.pressed.set_pressed(row.is_high(), i as u8, j as u8)
+                    {
                         cb(KeyChangeEventOneHand {
                             row: i as u8,
                             col: j as u8,
@@ -82,20 +84,20 @@ impl<'a> KeyboardScanner<'a> {
                         });
                     }
                 }
-
                 col.set_low();
                 col.wait_for_low().await;
+                col.set_as_input();
             }
         }
 
         // row -> col scan
         {
-            for (i, row) in self.rows.iter_mut().enumerate() {
-                for col in self.cols.iter_mut() {
-                    col.set_as_input();
-                    col.set_pull(Pull::Down);
-                }
+            for col in self.cols.iter_mut() {
+                col.set_as_input();
+                col.set_pull(Pull::Down);
+            }
 
+            for (i, row) in self.rows.iter_mut().enumerate() {
                 row.set_as_output();
                 row.set_low();
                 row.set_high();
@@ -103,13 +105,14 @@ impl<'a> KeyboardScanner<'a> {
 
                 for (j, col) in self.cols.iter_mut().enumerate() {
                     // In left side, this is always high.
-                    if (i, j) == LEFT_DETECT_JUMPER_KEY {
+                    if (i, j + 3) == LEFT_DETECT_JUMPER_KEY {
                         continue;
                     }
 
-                    let state = col.is_high();
-
-                    if let Some(change) = self.pressed.set_pressed(state, i as u8, (j + 3) as u8) {
+                    if let Some(change) =
+                        self.pressed
+                            .set_pressed(col.is_high(), i as u8, (j + 3) as u8)
+                    {
                         cb(KeyChangeEventOneHand {
                             row: i as u8,
                             col: (j + 3) as u8,
@@ -120,6 +123,7 @@ impl<'a> KeyboardScanner<'a> {
 
                 row.set_low();
                 row.wait_for_low().await;
+                row.set_as_input();
             }
         }
     }

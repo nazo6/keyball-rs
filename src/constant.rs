@@ -1,7 +1,7 @@
 pub const RIGHT_LED_NUM: usize = 34;
 pub const LEFT_LED_NUM: usize = 37;
 
-pub const SPLIT_BITRATE: f64 = 200000.0;
+pub const SPLIT_BITRATE: f64 = 100000.0;
 pub const SPLIT_CLK_DIVIDER: f64 = 125_000_000.0 / (SPLIT_BITRATE * 8.0);
 pub const SPLIT_CHANNEL_SIZE: usize = 64;
 /// Time (msec) to wait for USB connection to determine master/slave
