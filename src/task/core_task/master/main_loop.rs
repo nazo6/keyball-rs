@@ -103,12 +103,12 @@ pub(super) async fn start<'a, 'b>(
 
         join(
             async {
-                if let Some(rp) = state_report.mouse_report {
-                    crate::DISPLAY.set_mouse_pos(rp.x, rp.y).await;
-                }
-                crate::DISPLAY
-                    .set_highest_layer(state_report.highest_layer)
-                    .await;
+                // if let Some(rp) = state_report.mouse_report {
+                //     crate::DISPLAY.set_mouse_pos(rp.x, rp.y).await;
+                // }
+                // crate::DISPLAY
+                //     .set_highest_layer(state_report.highest_layer)
+                //     .await;
             },
             async {
                 let led = if state_report.highest_layer == 1 {
@@ -145,7 +145,7 @@ pub(super) async fn start<'a, 'b>(
 
         let took = start.elapsed().as_micros();
         // crate::print!("st: {}         ", took);
-        if took < MIN_KB_SCAN_INTERVAL {
+        if took < MIN_KB_SCAN_INTERVAL * 1000 {
             Timer::after_micros(MIN_KB_SCAN_INTERVAL * 1000 - took).await;
         }
     }

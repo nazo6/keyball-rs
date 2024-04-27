@@ -51,7 +51,7 @@ impl<'a> KeyboardScanner<'a> {
             events.push(e).ok();
         })
         .await;
-        crate::print!("{:?}                     ", self.pressed);
+        // crate::print!("{:?}                     ", self.pressed);
         events
     }
 
