@@ -30,7 +30,9 @@ pub struct State {
     pressed: AllPressed,
 
     auto_mouse_start: Option<Instant>,
-    scroll_mode: bool,
+    // scoll_modeがonのときにSomeとなり、中身には「残っているスクロール」の値が入る。
+    // スクロールは値が小さい関係上、1より小さい値になることが多々ある。これを0とみなすと、小さいスクロールができなくなってしまう。
+    scroll_mode: Option<(i8, i8)>,
 
     empty_kb_sent: bool,
     empty_mouse_sent: bool,
@@ -47,7 +49,7 @@ impl State {
             pressed: AllPressed::new(),
 
             auto_mouse_start: None,
-            scroll_mode: false,
+            scroll_mode: None,
 
             empty_kb_sent: false,
             empty_mouse_sent: false,
@@ -94,7 +96,7 @@ impl State {
                 },
                 KeyStatusChangeType::Pressing(duration) => match key_action {
                     KeyAction::Tap(kc) => Some(kc),
-                    KeyAction::TapHold(tkc, hkc) => {
+                    KeyAction::TapHold(_tkc, hkc) => {
                         if duration.as_millis() > TAP_THRESHOLD {
                             Some(hkc)
                         } else {
@@ -153,19 +155,21 @@ impl State {
                 KeyCode::Special(special_op) => match event.change_type {
                     KeyStatusChangeType::Released(_) => match special_op {
                         Special::MoScrl => {
-                            self.scroll_mode = false;
+                            self.scroll_mode = None;
                         }
                     },
                     _ => match special_op {
                         Special::MoScrl => {
-                            self.scroll_mode = true;
+                            if self.scroll_mode.is_none() {
+                                self.scroll_mode = Some((0, 0));
+                            }
                         }
                     },
                 },
             };
         }
 
-        if *mouse_event != (0, 0) || mouse_buttons != 0 || self.scroll_mode {
+        if *mouse_event != (0, 0) || mouse_buttons != 0 || self.scroll_mode.is_some() {
             self.layer_active[AUTO_MOUSE_LAYER] = true;
             self.auto_mouse_start = Some(now);
         } else if let Some(start) = self.auto_mouse_start {
@@ -189,13 +193,19 @@ impl State {
             }
         } else {
             self.empty_mouse_sent = true;
-            if self.scroll_mode {
+            if let Some((remained_wheel, remained_pan)) = &mut self.scroll_mode {
+                let wheel_raw = mouse_event.0 + *remained_wheel;
+                let pan_raw = mouse_event.1 + *remained_pan;
+                let wheel = wheel_raw / SCROLL_DIVIDER;
+                let pan = pan_raw / SCROLL_DIVIDER;
+                *remained_wheel = wheel_raw % SCROLL_DIVIDER;
+                *remained_pan = pan_raw % SCROLL_DIVIDER;
                 Some(MouseReport {
                     x: 0,
                     y: 0,
                     buttons: mouse_buttons,
-                    wheel: mouse_event.0 / SCROLL_DIVIDER,
-                    pan: mouse_event.1 / SCROLL_DIVIDER,
+                    wheel,
+                    pan,
                 })
             } else {
                 Some(MouseReport {
