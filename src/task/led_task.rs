@@ -1,6 +1,6 @@
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, signal::Signal};
 
-use rkyv::{Archive, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use smart_leds::RGB8;
 
 use crate::{
@@ -10,13 +10,13 @@ use crate::{
 
 use super::LedPeripherals;
 
-#[derive(Archive, Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub enum LedControl {
     Start(LedAnimation),
     Reset,
 }
 
-#[derive(Archive, Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Eq, PartialEq)]
 pub enum LedAnimation {
     Rainbow,
     Blink,

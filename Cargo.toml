@@ -48,12 +48,10 @@ embassy-sync = "0.5.0"
 pio-proc = "0.2.2"
 pio = "0.2.1"
 smart-leds = "0.4.0"
-rkyv = { version = "0.7.44", default-features = false, features = [
-  "size_32",
-  "bytecheck",
-] }
 paste = "1.0.14"
 bitflags = "2.5.0"
+postcard = "1.0.8"
+serde = { version = "1.0.202", default-features = false, features = ["derive"] }
 
 [features]
 default = ["rp2040"]
