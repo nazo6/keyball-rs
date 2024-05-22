@@ -139,7 +139,6 @@ pub(super) async fn start<'a, 'b>(
         .await;
 
         let took = start.elapsed().as_micros();
-        // crate::print!("st: {}         ", took);
         if took < MIN_KB_SCAN_INTERVAL * 1000 {
             Timer::after_micros(MIN_KB_SCAN_INTERVAL * 1000 - took).await;
         }

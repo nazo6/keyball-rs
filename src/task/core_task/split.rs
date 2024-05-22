@@ -16,14 +16,12 @@ pub type M2sTx<'a> = Sender<'a, ThreadModeRawMutex, MasterToSlave, SPLIT_CHANNEL
 pub const MAX_DATA_SIZE: usize = 8;
 
 #[derive(Deserialize, Serialize, Debug)]
-// #[archive(check_bytes)]
 pub enum MasterToSlave {
     Led(LedControl),
     Message(u8),
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-// #[archive(check_bytes)]
 pub enum SlaveToMaster {
     Pressed(u8, u8),
     Released(u8, u8),
@@ -32,7 +30,6 @@ pub enum SlaveToMaster {
 }
 
 #[derive(Deserialize, Serialize, Debug)]
-// #[archive(check_bytes)]
 pub enum KeyChangeType {
     Pressed,
     Released,

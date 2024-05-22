@@ -31,6 +31,7 @@ embassy-usb = { version = "0.2.0", git = "https://github.com/embassy-rs/embassy"
   "defmt",
 ] }
 embassy-futures = { version = "0.1.0", git = "https://github.com/embassy-rs/embassy" }
+embassy-sync = { version = "0.5.0", git = "https://github.com/embassy-rs/embassy" }
 
 defmt = "0.3"
 defmt-rtt = "0.4"
@@ -44,7 +45,6 @@ usbd-hid = "0.7.0"
 ssd1306 = { git = "https://github.com/bugadani/ssd1306", branch = "ehal1" }
 embedded-graphics = "0.8.1"
 heapless = "0.8.0"
-embassy-sync = "0.5.0"
 pio-proc = "0.2.2"
 pio = "0.2.1"
 smart-leds = "0.4.0"
