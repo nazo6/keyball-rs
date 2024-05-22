@@ -1,7 +1,10 @@
 use embassy_futures::yield_now;
 use embassy_rp::peripherals::PIO0;
 use embassy_rp::pio::{Common, Config, Pin, Pio, ShiftDirection, StateMachine};
+use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use embassy_sync::semaphore::{FairSemaphore, Semaphore};
 use embassy_time::Timer;
+
 use fixed::traits::ToFixed;
 
 use crate::constant::SPLIT_CLK_DIVIDER;
@@ -85,6 +88,8 @@ pub struct Communicate<'a> {
     pin: Pin<'a, PIO0>,
 }
 
+static COMM_SEMAPHORE: FairSemaphore<ThreadModeRawMutex, 3> = FairSemaphore::new(1);
+
 impl<'a> Communicate<'a> {
     pub async fn new<'b: 'a>(p: SplitPeripherals) -> Communicate<'a> {
         let pio = Pio::new(p.pio, Irqs);
@@ -139,25 +144,38 @@ impl<'a> Communicate<'a> {
         (start_bit == 1, end_bit == 1, data as u8)
     }
     pub async fn recv_data<const N: usize>(&mut self, buf: &mut [u8; N]) {
-        let mut i = 0;
-        while i < N {
+        let _permit = loop {
             let (start, end, data) = self.recv_byte().await;
 
-            if i == 0 && !start {
+            let permit = COMM_SEMAPHORE.try_acquire(1);
+
+            if !start {
                 continue;
             }
 
-            buf[i] = data;
+            buf[0] = data;
+
+            if end {
+                return;
+            }
+
+            break permit;
+        };
+
+        for b in buf.iter_mut().skip(1) {
+            let (_start, end, data) = self.recv_byte().await;
+
+            *b = data;
 
             if end {
                 break;
             }
-
-            i += 1;
         }
     }
 
     pub async fn send_data<const N: usize>(&mut self, buf: &[u8]) {
+        let _permit = COMM_SEMAPHORE.acquire(1).await;
+
         self.enter_tx().await;
 
         for (i, data) in buf.iter().enumerate() {
