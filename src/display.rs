@@ -11,7 +11,7 @@ pub static DISPLAY: GlobalDisplay = GlobalDisplay::new();
 
 macro_rules! update_display {
     ($self:expr, $str:expr, $x:literal, $y:literal) => {
-        $self
+        let _ = $self
             .inner
             .lock()
             .await
@@ -33,18 +33,19 @@ impl GlobalDisplay {
         }
     }
     pub async fn init(&self, p: DisplayPeripherals) {
-        self.inner.lock().await.replace(Oled::new(p));
+        let (display, _success) = Oled::new(p);
+        self.inner.lock().await.replace(display);
     }
 
     pub fn try_draw_text(&self, str: &str) {
         if let Ok(mut display) = self.inner.try_lock() {
-            display.as_mut().unwrap().draw_text_blocking(str);
+            let _ = display.as_mut().unwrap().draw_text_blocking(str);
         }
     }
 
     pub fn try_set_message(&self, str: &str) {
         if let Ok(mut display) = self.inner.try_lock() {
-            display
+            let _ = display
                 .as_mut()
                 .unwrap()
                 .update_text_blocking(str, Oled::calculate_point(1, 3));

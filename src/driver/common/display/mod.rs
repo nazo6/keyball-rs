@@ -1,3 +1,4 @@
+use display_interface::DisplayError;
 use embedded_graphics::{
     mono_font::{ascii::FONT_6X10, MonoTextStyle, MonoTextStyleBuilder},
     pixelcolor::BinaryColor,
@@ -25,47 +26,47 @@ pub struct Oled<'a> {
 
 #[allow(dead_code)]
 impl<'a> Oled<'a> {
-    pub fn new(p: DisplayPeripherals) -> Self {
+    pub fn new(p: DisplayPeripherals) -> (Self, bool) {
         let interface = I2CDisplayInterface::new(create_i2c(p, 400_000));
 
         let mut display = Ssd1306::new(interface, DisplaySize128x32, DisplayRotation::Rotate0)
             .into_buffered_graphics_mode();
-        display.init().unwrap();
+        let success = display.init().is_ok();
 
-        Self { display }
+        (Self { display }, success)
     }
 
     pub const fn calculate_point(col: i32, row: i32) -> Point {
         Point::new((col - 1) * 6, (row - 1) * 10)
     }
 
-    pub async fn clear(&mut self) {
+    pub async fn clear(&mut self) -> Result<(), DisplayError> {
         self.display.clear_buffer();
-        self.display.flush_async().await.unwrap();
+        self.display.flush_async().await
     }
 
-    pub async fn update_text(&mut self, text: &str, point: Point) {
+    pub async fn update_text(&mut self, text: &str, point: Point) -> Result<(), DisplayError> {
         Text::with_baseline(text, point, TEXT_STYLE, Baseline::Top)
             .draw(&mut self.display)
             .unwrap();
 
-        self.display.flush_async().await.unwrap();
+        self.display.flush_async().await
     }
 
-    pub fn draw_text_blocking(&mut self, text: &str) {
+    pub fn draw_text_blocking(&mut self, text: &str) -> Result<(), DisplayError> {
         self.display.clear_buffer();
 
         Text::with_baseline(text, Point::zero(), TEXT_STYLE, Baseline::Top)
             .draw(&mut self.display)
             .unwrap();
 
-        self.display.flush().unwrap();
+        self.display.flush()
     }
 
-    pub fn update_text_blocking(&mut self, text: &str, point: Point) {
+    pub fn update_text_blocking(&mut self, text: &str, point: Point) -> Result<(), DisplayError> {
         Text::with_baseline(text, point, TEXT_STYLE, Baseline::Top)
             .draw(&mut self.display)
             .unwrap();
-        self.display.flush().unwrap();
+        self.display.flush()
     }
 }

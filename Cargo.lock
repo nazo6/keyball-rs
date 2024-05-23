@@ -832,6 +832,7 @@ dependencies = [
  "cortex-m-rt",
  "defmt",
  "defmt-rtt",
+ "display-interface",
  "embassy-embedded-hal",
  "embassy-executor",
  "embassy-futures",
