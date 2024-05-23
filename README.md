@@ -2,14 +2,17 @@
 
 ProMicro RP2040用のRust(+Embassy)製Keyballファームウェアです。
 
+紹介記事:
+[RustとEmbassyでKeyballのファームウェアを作った](https://zenn.dev/nazo6/articles/keyball-embassy-rp2040)
+
 ## ステータス
 
 基本的なキースキャン機能とレイヤ機能を実装しています。`keyboard/keymap.rs`を編集することでキーマップを変更できます。
 
 ## 既知の不具合
 
-- 左右間の通信が衝突すると動作が不安定になる(特にボールをslave側にしたときに起こりやすい)
-- 一部同時押しが動かない
+- 左右間の通信が不安定なことがある
+- メディアキーが効かない
 
 ## ビルド
 
