@@ -38,6 +38,7 @@ async fn main(_spawner: Spawner) {
         split: peripherals.split,
         led: peripherals.led,
         usb: peripherals.usb,
+        temp: peripherals.temp,
     })
     .await;
 }

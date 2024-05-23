@@ -11,6 +11,7 @@ pub mod interrupts {
         PIO1_IRQ_0 => embassy_rp::pio::InterruptHandler<PIO1>;
         USBCTRL_IRQ => embassy_rp::usb::InterruptHandler<USB>;
         I2C1_IRQ => embassy_rp::i2c::InterruptHandler<I2C1>;
+        ADC_IRQ_FIFO => embassy_rp::adc::InterruptHandler;
     });
 }
 
@@ -73,4 +74,21 @@ pub mod usb {
 
 pub mod gpio {
     pub use embassy_rp::gpio::*;
+}
+
+pub mod adc {
+    use embassy_rp::{
+        adc::{Adc, Async, Channel, Config},
+        peripherals::{ADC, ADC_TEMP_SENSOR},
+    };
+
+    use super::interrupts::Irqs;
+
+    pub fn create_adc<'a>(adc_peripheral: ADC) -> Adc<'a, Async> {
+        Adc::new(adc_peripheral, Irqs, Config::default())
+    }
+
+    pub fn temp_sensor_channel<'a>(adc_temp_sensor_peripheral: ADC_TEMP_SENSOR) -> Channel<'a> {
+        Channel::new_temp_sensor(adc_temp_sensor_peripheral)
+    }
 }

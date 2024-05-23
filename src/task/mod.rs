@@ -1,4 +1,4 @@
-use embassy_futures::join::join;
+use embassy_futures::join::{join, join3};
 use embassy_sync::signal::Signal;
 use embassy_usb::class::hid::State;
 
@@ -12,6 +12,7 @@ use self::usb_task::RemoteWakeupSignal;
 
 mod core_task;
 mod led_task;
+mod temperature_task;
 mod usb_task;
 
 pub struct TaskPeripherals {
@@ -20,6 +21,7 @@ pub struct TaskPeripherals {
     pub split: SplitPeripherals,
     pub led: LedPeripherals,
     pub usb: UsbPeripherals,
+    pub temp: TemperaturePeripherals,
 }
 
 /// Starts tasks.
@@ -56,12 +58,13 @@ pub async fn start(p: TaskPeripherals) {
             let hand = scanner.hand().await;
             crate::DISPLAY.set_hand(hand).await;
 
-            join(
+            join3(
                 led_task::start(led_task::LedTaskResource {
                     peripherals: p.led,
                     led_ctrl: &led_controller,
                     hand,
                 }),
+                temperature_task::start(p.temp),
                 async {
                     let ball = Ball::init(p.ball).await.ok();
                     crate::DISPLAY.set_mouse(ball.is_some()).await;

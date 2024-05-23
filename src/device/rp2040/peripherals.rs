@@ -7,6 +7,7 @@ pub struct Peripherals {
     pub split: SplitPeripherals,
     pub led: LedPeripherals,
     pub usb: UsbPeripherals,
+    pub temp: TemperaturePeripherals,
 }
 
 pub struct DisplayPeripherals {
@@ -25,6 +26,11 @@ pub struct KeyboardPeripherals {
     pub col_1: PIN_28,
     pub col_2: PIN_27,
     pub col_3: PIN_26,
+}
+
+pub struct TemperaturePeripherals {
+    pub adc: ADC,
+    pub temp_sensor: ADC_TEMP_SENSOR,
 }
 
 pub struct BallPeripherals {
@@ -99,5 +105,9 @@ pub fn init_peripherals() -> Peripherals {
             dma: p.DMA_CH2,
         },
         usb: UsbPeripherals { usb: p.USB },
+        temp: TemperaturePeripherals {
+            adc: p.ADC,
+            temp_sensor: p.ADC_TEMP_SENSOR,
+        },
     }
 }
