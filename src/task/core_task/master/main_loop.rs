@@ -1,7 +1,7 @@
-use embassy_futures::join::join;
+use embassy_futures::join::{join, join3};
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Sender};
 use embassy_time::Timer;
-use usbd_hid::descriptor::{KeyboardReport, MouseReport};
+use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, MouseReport};
 
 use crate::{
     constant::MIN_KB_SCAN_INTERVAL,
@@ -26,6 +26,7 @@ pub struct MasterMainLoopResource<'a, 'b> {
     pub hand: Hand,
     pub kb_report_tx: Sender<'a, ThreadModeRawMutex, KeyboardReport, 10>,
     pub mouse_report_tx: Sender<'a, ThreadModeRawMutex, MouseReport, 10>,
+    pub mkb_report_tx: Sender<'a, ThreadModeRawMutex, MediaKeyboardReport, 10>,
 }
 
 /// Master-side main task.
@@ -39,6 +40,7 @@ pub(super) async fn start<'a, 'b>(
         hand,
         kb_report_tx,
         mouse_report_tx,
+        mkb_report_tx,
     }: MasterMainLoopResource<'a, 'b>,
 ) {
     DISPLAY.set_master(true).await;
@@ -106,10 +108,11 @@ pub(super) async fn start<'a, 'b>(
                     .await;
             },
             async {
-                let led = if state_report.highest_layer == 1 {
-                    LedControl::Start(LedAnimation::SolidColor(50, 0, 0))
-                } else {
-                    LedControl::Start(LedAnimation::SolidColor(0, 0, 0))
+                let led = match state_report.highest_layer {
+                    1 => LedControl::Start(LedAnimation::SolidColor(0, 3, 25)),
+                    2 => LedControl::Start(LedAnimation::SolidColor(25, 0, 1)),
+                    3 => LedControl::Start(LedAnimation::SolidColor(0, 25, 2)),
+                    _ => LedControl::Start(LedAnimation::SolidColor(0, 0, 0)),
                 };
 
                 if let Some(latest_led) = &latest_led {
@@ -124,7 +127,7 @@ pub(super) async fn start<'a, 'b>(
         )
         .await;
 
-        join(
+        join3(
             async {
                 if let Some(report) = state_report.keyboard_report {
                     let _ = kb_report_tx.try_send(report);
@@ -133,6 +136,11 @@ pub(super) async fn start<'a, 'b>(
             async {
                 if let Some(report) = state_report.mouse_report {
                     let _ = mouse_report_tx.try_send(report);
+                }
+            },
+            async {
+                if let Some(report) = state_report.media_keyboard_report {
+                    let _ = mkb_report_tx.try_send(report);
                 }
             },
         )

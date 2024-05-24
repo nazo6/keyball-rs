@@ -3,7 +3,7 @@
 use core::array::from_fn;
 
 use embassy_time::Instant;
-use usbd_hid::descriptor::{KeyboardReport, MouseReport};
+use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, MouseReport};
 
 use crate::{
     constant::{
@@ -14,15 +14,18 @@ use crate::{
     keyboard::keycode::{layer::LayerOp, special::Special, KeyCode, KeyDef, Layer},
 };
 
-use self::{
-    all_pressed::{AllPressed, KeyStatusChangeType},
-    report::StateReport,
-};
+use self::all_pressed::{AllPressed, KeyStatusChangeType};
 
 use super::keyboard::keycode::KeyAction;
 
 mod all_pressed;
-pub mod report;
+
+pub struct StateReport {
+    pub keyboard_report: Option<KeyboardReport>,
+    pub mouse_report: Option<MouseReport>,
+    pub media_keyboard_report: Option<MediaKeyboardReport>,
+    pub highest_layer: u8,
+}
 
 #[derive(Default)]
 pub struct KeyState {
@@ -45,6 +48,8 @@ pub struct State {
 
     empty_kb_sent: bool,
     empty_mouse_sent: bool,
+    empty_mkb_sent: bool,
+    previous_mkb: Option<MediaKeyboardReport>,
 }
 
 impl State {
@@ -63,6 +68,8 @@ impl State {
 
             empty_kb_sent: false,
             empty_mouse_sent: false,
+            empty_mkb_sent: false,
+            previous_mkb: None,
         }
     }
 
@@ -96,10 +103,11 @@ impl State {
 
         let mut keycodes = [0; 6];
         let mut keycodes_idx = 0;
-
         let mut modifier = 0;
 
         let mut mouse_buttons = 0;
+
+        let mut media_key = None;
 
         // - 自動マウスレイヤ即時無効化判定
         // - TapHoldの強制Hold化判定
@@ -145,6 +153,9 @@ impl State {
                         keycodes[keycodes_idx] = *key as u8;
                         keycodes_idx += 1;
                     }
+                }
+                KeyCode::Media(key) => {
+                    media_key = Some(*key as u16);
                 }
                 KeyCode::Mouse(btn) => mouse_buttons |= btn.bits(),
                 KeyCode::Modifier(mod_key) => {
@@ -200,8 +211,8 @@ impl State {
         };
 
         let mouse_report = if *mouse_event == (0, 0) && mouse_buttons == 0 {
-            if self.empty_mouse_sent {
-                self.empty_mouse_sent = false;
+            if !self.empty_mouse_sent {
+                self.empty_mouse_sent = true;
                 Some(MouseReport {
                     x: 0,
                     y: 0,
@@ -213,7 +224,7 @@ impl State {
                 None
             }
         } else {
-            self.empty_mouse_sent = true;
+            self.empty_mouse_sent = false;
             if let Some((remained_wheel, remained_pan)) = &mut self.scroll_mode {
                 let wheel_raw = mouse_event.0 + *remained_wheel;
                 let pan_raw = mouse_event.1 + *remained_pan;
@@ -240,14 +251,14 @@ impl State {
         };
 
         let keyboard_report = if modifier == 0 && keycodes_idx == 0 {
-            if self.empty_kb_sent {
-                self.empty_kb_sent = false;
+            if !self.empty_kb_sent {
+                self.empty_kb_sent = true;
                 Some(KeyboardReport::default())
             } else {
                 None
             }
         } else {
-            self.empty_kb_sent = true;
+            self.empty_kb_sent = false;
             Some(KeyboardReport {
                 keycodes,
                 modifier,
@@ -256,9 +267,37 @@ impl State {
             })
         };
 
+        let media_keyboard_report = match media_key {
+            Some(key) => {
+                self.empty_mkb_sent = false;
+                let mut same = false;
+                if let Some(prev) = &self.previous_mkb {
+                    if prev.usage_id == key {
+                        same = true;
+                    }
+                }
+                if same {
+                    None
+                } else {
+                    self.previous_mkb = Some(MediaKeyboardReport { usage_id: key });
+                    Some(MediaKeyboardReport { usage_id: key })
+                }
+            }
+            None => {
+                self.previous_mkb = None;
+                if !self.empty_mkb_sent {
+                    self.empty_mkb_sent = true;
+                    Some(MediaKeyboardReport { usage_id: 0 })
+                } else {
+                    None
+                }
+            }
+        };
+
         StateReport {
             keyboard_report,
             mouse_report,
+            media_keyboard_report,
             highest_layer: self.layer_active.iter().rposition(|&x| x).unwrap_or(0) as u8,
         }
     }

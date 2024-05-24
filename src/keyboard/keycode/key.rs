@@ -230,8 +230,6 @@ normal!(SEMI, Key, Semicolon);
 normal!(COMM, Key, Comma);
 normal!(LBRC, Key, LeftBracket);
 normal!(RBRC, Key, RightBracket);
-normal!(VOLUP, Key, VolumeUp);
-normal!(VOLDN, Key, VolumeDown);
 
 // Japanese keys
 normal!(JCOLN, Key, Quote);

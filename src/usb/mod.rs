@@ -2,7 +2,9 @@ use core::sync::atomic::AtomicBool;
 
 use embassy_usb::class::hid::{HidReaderWriter, RequestHandler, State};
 use embassy_usb::{Builder, Config, Handler, UsbDevice};
-use usbd_hid::descriptor::{KeyboardReport, MouseReport, SerializedDescriptor};
+use usbd_hid::descriptor::{
+    KeyboardReport, MediaKeyboardReport, MouseReport, SerializedDescriptor,
+};
 
 use crate::device::usb::DeviceDriver;
 
@@ -12,6 +14,7 @@ pub mod request_handler;
 pub struct Hid<'a> {
     pub keyboard: HidReaderWriter<'a, DeviceDriver<'a>, 1, 8>,
     pub mouse: HidReaderWriter<'a, DeviceDriver<'a>, 1, 8>,
+    pub media_key: HidReaderWriter<'a, DeviceDriver<'a>, 1, 8>,
 }
 
 pub struct UsbOpts<'a> {
@@ -22,9 +25,11 @@ pub struct UsbOpts<'a> {
     pub control_buf: &'a mut [u8],
     pub kb_request_handler: &'a mut dyn RequestHandler,
     pub mouse_request_handler: &'a mut dyn RequestHandler,
+    pub mkb_request_handler: &'a mut dyn RequestHandler,
     pub device_handler: &'a mut dyn Handler,
     pub state_kb: &'a mut State<'a>,
     pub state_mouse: &'a mut State<'a>,
+    pub state_media_key: &'a mut State<'a>,
 }
 
 pub struct UsbResource<'a> {
@@ -73,6 +78,15 @@ pub fn create_usb(opts: UsbOpts) -> UsbResource {
         };
         HidReaderWriter::<_, 1, 8>::new(&mut builder, opts.state_mouse, config)
     };
+    let media_key_hid = {
+        let config = embassy_usb::class::hid::Config {
+            report_descriptor: MediaKeyboardReport::desc(),
+            request_handler: Some(opts.mkb_request_handler),
+            poll_ms: 10,
+            max_packet_size: 64,
+        };
+        HidReaderWriter::<_, 1, 8>::new(&mut builder, opts.state_media_key, config)
+    };
 
     // Build the builder.
     let usb = builder.build();
@@ -82,6 +96,7 @@ pub fn create_usb(opts: UsbOpts) -> UsbResource {
         hid: Hid {
             keyboard: keyboard_hid,
             mouse: mouse_hid,
+            media_key: media_key_hid,
         },
     }
 }

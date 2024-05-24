@@ -20,7 +20,7 @@ pub enum LedControl {
 pub enum LedAnimation {
     Rainbow,
     Blink,
-    // Color (hsv)
+    // Color (rgb)
     SolidColor(u8, u8, u8),
 }
 
@@ -51,9 +51,8 @@ pub async fn start(
                     LedAnimation::Blink => {
                         //
                     }
-                    LedAnimation::SolidColor(h, s, v) => {
-                        // let color = hsv2rgb(h, s, v);
-                        let color = (h, s, v).into();
+                    LedAnimation::SolidColor(r, g, b) => {
+                        let color = (r, g, b).into();
                         match hand {
                             Hand::Left => {
                                 let data = [color; LEFT_LED_NUM];

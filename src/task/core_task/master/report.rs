@@ -1,20 +1,22 @@
 use core::sync::atomic::Ordering;
 
-use embassy_futures::join::join;
+use embassy_futures::join::join3;
 use embassy_sync::{blocking_mutex::raw::ThreadModeRawMutex, channel::Receiver};
 use embassy_usb::{class::hid::HidWriter, driver::Driver};
-use usbd_hid::descriptor::{KeyboardReport, MouseReport};
+use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, MouseReport};
 
 use crate::{task::usb_task::RemoteWakeupSignal, usb::SUSPENDED};
 
 pub async fn start<'a, 'b, D: Driver<'b>, const N: usize>(
     kb_report_rx: Receiver<'a, ThreadModeRawMutex, KeyboardReport, 10>,
     mouse_report_rx: Receiver<'a, ThreadModeRawMutex, MouseReport, 10>,
+    mkb_report_rx: Receiver<'a, ThreadModeRawMutex, MediaKeyboardReport, 10>,
     mut keyboard_writer: HidWriter<'b, D, N>,
     mut mouse_writer: HidWriter<'b, D, N>,
+    mut mkb_writer: HidWriter<'b, D, N>,
     remote_wakeup_signal: &'a RemoteWakeupSignal,
 ) {
-    join(
+    join3(
         async {
             loop {
                 let mouse_report = mouse_report_rx.receive().await;
@@ -28,6 +30,12 @@ pub async fn start<'a, 'b, D: Driver<'b>, const N: usize>(
                 if SUSPENDED.load(Ordering::Relaxed) {
                     remote_wakeup_signal.signal(());
                 }
+            }
+        },
+        async {
+            loop {
+                let mkb_report = mkb_report_rx.receive().await;
+                let _ = mkb_writer.write_serialize(&mkb_report).await;
             }
         },
     )

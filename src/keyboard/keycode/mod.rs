@@ -3,6 +3,7 @@ use crate::constant::{COLS, ROWS};
 pub mod key;
 pub mod layer;
 pub mod macros;
+pub mod media;
 pub mod modifier;
 pub mod mouse;
 pub mod special;
@@ -15,6 +16,7 @@ pub enum KeyCode {
     WithModifier(modifier::Modifier, key::Key),
     Layer(layer::LayerOp),
     Special(special::Special),
+    Media(media::Media),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]

@@ -42,9 +42,11 @@ pub async fn start(p: TaskPeripherals) {
         control_buf: &mut [0; 64],
         kb_request_handler: &mut UsbRequestHandler {},
         mouse_request_handler: &mut UsbRequestHandler {},
+        mkb_request_handler: &mut UsbRequestHandler {},
         device_handler: &mut device_handler,
         state_kb: &mut State::new(),
         state_mouse: &mut State::new(),
+        state_media_key: &mut State::new(),
     };
     let usb = crate::usb::create_usb(opts);
 

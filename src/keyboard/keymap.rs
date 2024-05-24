@@ -2,6 +2,7 @@ use crate::constant::LAYER_NUM;
 
 use super::keycode::key::*;
 use super::keycode::layer::*;
+use super::keycode::media::*;
 use super::keycode::modifier::*;
 use super::keycode::mouse::*;
 use super::keycode::special::*;
