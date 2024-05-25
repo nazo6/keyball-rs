@@ -18,14 +18,11 @@ impl UsbDeviceHandler {
     }
 }
 
+// 参考: https://www.itf.co.jp/tech/road-to-usb-master/usb-status
 impl Handler for UsbDeviceHandler {
     fn enabled(&mut self, enabled: bool) {
         self.configured.store(false, Ordering::Relaxed);
-        if enabled {
-            // print_sync!("Device enabled");
-        } else {
-            // print_sync!("Device disabled");
-        }
+        SUSPENDED.store(false, Ordering::Release);
     }
 
     fn reset(&mut self) {
@@ -40,21 +37,9 @@ impl Handler for UsbDeviceHandler {
 
     fn configured(&mut self, configured: bool) {
         self.configured.store(configured, Ordering::Relaxed);
-        if configured {
-            // print_sync!(
-            //     "Device configured, it may now draw up to the configured current limit from Vbus."
-            // )
-        } else {
-            // print_sync!("Device is no longer configured, the Vbus current limit is 100mA.");
-        }
     }
 
     fn suspended(&mut self, suspended: bool) {
-        if suspended {
-            // print_sync!("Suspended");
-        } else {
-            // print_sync!("Unsuspended");
-        }
-        SUSPENDED.store(suspended, Ordering::Relaxed);
+        SUSPENDED.store(suspended, Ordering::Release);
     }
 }

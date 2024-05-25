@@ -62,6 +62,7 @@ pub mod spi_ball {
 
 pub mod usb {
     use embassy_rp::{peripherals::USB, usb::Driver};
+    use embassy_usb::UsbDevice;
 
     use super::{interrupts::Irqs, peripherals::UsbPeripherals};
 
@@ -69,6 +70,16 @@ pub mod usb {
 
     pub fn create_usb_driver<'a>(p: UsbPeripherals) -> Driver<'a, USB> {
         Driver::new(p.usb, Irqs)
+    }
+
+    // ref: https://github.com/rp-rs/rp-hal/blob/a1b20f3a2cc0702986c478b0e1ee666f44d66853/rp2040-hal/src/usb.rs#L494
+    // https://docs.rs/rp-pac/6.0.0/rp_pac/usb/regs/struct.SieCtrl.html
+    // TODO: クリティカルセッションのことを考慮しないとだめかも？
+    // まあそんなに同時に書き込まれることはないだろうしとりあえず…
+    pub async fn remote_wakeup<'a>(_device: &mut UsbDevice<'a, DeviceDriver<'a>>) {
+        embassy_rp::pac::USBCTRL_REGS
+            .sie_ctrl()
+            .modify(|w| w.set_resume(true));
     }
 }
 
