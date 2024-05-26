@@ -109,8 +109,8 @@ pub(super) async fn start<'a, 'b>(
             },
             async {
                 let led = match state_report.highest_layer {
-                    1 => LedControl::Start(LedAnimation::SolidColor(0, 3, 25)),
-                    2 => LedControl::Start(LedAnimation::SolidColor(25, 0, 1)),
+                    1 => LedControl::Start(LedAnimation::SolidColor(0, 0, 1)),
+                    2 => LedControl::Start(LedAnimation::SolidColor(1, 0, 0)),
                     3 => LedControl::Start(LedAnimation::SolidColor(0, 25, 2)),
                     _ => LedControl::Start(LedAnimation::SolidColor(0, 0, 0)),
                 };

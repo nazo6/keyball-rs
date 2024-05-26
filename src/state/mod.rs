@@ -6,19 +6,25 @@ use embassy_time::Instant;
 use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, MouseReport};
 
 use crate::{
-    constant::{
-        AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS, SCROLL_DIVIDER_X,
-        SCROLL_DIVIDER_Y, TAP_THRESHOLD,
-    },
+    constant::{AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS},
     driver::keyboard::{Hand, KeyChangeEventOneHand},
-    keyboard::keycode::{layer::LayerOp, special::Special, KeyCode, KeyDef, Layer},
+    keyboard::keycode::{KeyDef, Layer},
 };
 
-use self::all_pressed::{AllPressed, KeyStatusChangeType};
+use self::{
+    all_pressed::AllPressed,
+    event::process_event,
+    report_gen::{
+        keyboard::KeyboardReportGenerator, media_keyboard::MediaKeyboardReportGenerator,
+        mouse::MouseReportGenerator,
+    },
+};
 
 use super::keyboard::keycode::KeyAction;
 
 mod all_pressed;
+mod event;
+mod report_gen;
 
 pub struct StateReport {
     pub keyboard_report: Option<KeyboardReport>,
@@ -29,7 +35,20 @@ pub struct StateReport {
 
 #[derive(Default)]
 pub struct KeyState {
+    force_hold: bool,
+    layer: usize,
+}
+
+/// メインループ内部での状態
+#[derive(Default)]
+pub struct MainloopState {
+    /// 自動マウスレイヤ即時無効化判定に使用
     normal_key_pressed: bool,
+    keycodes: [u8; 6],
+    keycodes_idx: usize,
+    modifier: u8,
+    media_key: Option<u16>,
+    mouse_buttons: u8,
 }
 
 pub struct State {
@@ -42,14 +61,11 @@ pub struct State {
     key_state: [[KeyState; COLS * 2]; ROWS],
 
     auto_mouse_start: Option<Instant>,
-    // scoll_modeがonのときにSomeとなり、中身には「残っているスクロール」の値が入る。
-    // スクロールは値が小さい関係上、1より小さい値になることが多々ある。これを0とみなすと、小さいスクロールができなくなってしまう。
-    scroll_mode: Option<(i8, i8)>,
+    scroll_mode: bool,
 
-    empty_kb_sent: bool,
-    empty_mouse_sent: bool,
-    empty_mkb_sent: bool,
-    previous_mkb: Option<MediaKeyboardReport>,
+    kb_report_gen: KeyboardReportGenerator,
+    mkb_report_gen: MediaKeyboardReportGenerator,
+    mouse_report_gen: MouseReportGenerator,
 }
 
 impl State {
@@ -64,12 +80,11 @@ impl State {
             key_state: from_fn(|_| from_fn(|_| KeyState::default())),
 
             auto_mouse_start: None,
-            scroll_mode: None,
+            scroll_mode: false,
 
-            empty_kb_sent: false,
-            empty_mouse_sent: false,
-            empty_mkb_sent: false,
-            previous_mkb: None,
+            kb_report_gen: KeyboardReportGenerator::new(),
+            mkb_report_gen: MediaKeyboardReportGenerator::new(),
+            mouse_report_gen: MouseReportGenerator::new(),
         }
     }
 
@@ -80,6 +95,7 @@ impl State {
         mouse_event: &(i8, i8),
     ) -> StateReport {
         let now = Instant::now();
+        let layer = self.highest_layer();
 
         let (left_events, right_events) = if self.master_hand == Hand::Left {
             (master_events, slave_events)
@@ -96,220 +112,58 @@ impl State {
         let events = events
             .into_iter()
             .filter_map(|e| {
-                let ka = self.get_keycode(e.row, e.col)?;
+                let ka = self.get_keycode(e.row, e.col, layer)?;
                 Some((ka, e))
             })
             .collect::<heapless::Vec<_, 32>>();
 
-        let mut keycodes = [0; 6];
-        let mut keycodes_idx = 0;
-        let mut modifier = 0;
-
-        let mut mouse_buttons = 0;
-
-        let mut media_key = None;
-
-        // - 自動マウスレイヤ即時無効化判定
-        // - TapHoldの強制Hold化判定
-        // に使用
-        let mut normal_key_pressed_enable = false;
+        let mut state = MainloopState::default();
 
         for (key_action, event) in events.iter() {
-            let Some(kc) = (match event.change_type {
-                KeyStatusChangeType::Pressed => match key_action {
-                    KeyAction::Tap(kc) => Some(kc),
-                    _ => None,
-                },
-                KeyStatusChangeType::Pressing(duration) => match key_action {
-                    KeyAction::Tap(kc) => Some(kc),
-                    KeyAction::TapHold(_tkc, hkc) => {
-                        if duration.as_millis() > TAP_THRESHOLD {
-                            Some(hkc)
-                        } else {
-                            None
-                        }
-                    }
-                },
-                KeyStatusChangeType::Released(duration) => match key_action {
-                    KeyAction::Tap(kc) => Some(kc),
-                    KeyAction::TapHold(tkc, hkc) => {
-                        if duration.as_millis() > TAP_THRESHOLD {
-                            Some(hkc)
-                        } else {
-                            Some(tkc)
-                        }
-                    }
-                },
-            }) else {
-                continue;
-            };
-
-            match kc {
-                KeyCode::Key(key) => {
-                    if let KeyStatusChangeType::Pressed = event.change_type {
-                        normal_key_pressed_enable = true;
-                    }
-                    if keycodes_idx < 6 {
-                        keycodes[keycodes_idx] = *key as u8;
-                        keycodes_idx += 1;
-                    }
-                }
-                KeyCode::Media(key) => {
-                    media_key = Some(*key as u16);
-                }
-                KeyCode::Mouse(btn) => mouse_buttons |= btn.bits(),
-                KeyCode::Modifier(mod_key) => {
-                    modifier |= mod_key.bits();
-                }
-                KeyCode::WithModifier(mod_key, key) => {
-                    if keycodes_idx < 6 {
-                        keycodes[keycodes_idx] = *key as u8;
-                        modifier |= mod_key.bits();
-                        keycodes_idx += 1;
-                    }
-                }
-                KeyCode::Layer(layer_op) => match event.change_type {
-                    KeyStatusChangeType::Released(_) => match layer_op {
-                        LayerOp::Move(l) => {
-                            self.layer_active[*l] = false;
-                        }
-                        LayerOp::Toggle(l) => {
-                            self.layer_active[*l] = !self.layer_active[*l];
-                        }
-                    },
-                    _ => match layer_op {
-                        LayerOp::Move(l) => {
-                            self.layer_active[*l] = true;
-                        }
-                        _ => {}
-                    },
-                },
-                KeyCode::Special(special_op) => match event.change_type {
-                    KeyStatusChangeType::Released(_) => match special_op {
-                        Special::MoScrl => {
-                            self.scroll_mode = None;
-                        }
-                    },
-                    _ => match special_op {
-                        Special::MoScrl => {
-                            if self.scroll_mode.is_none() {
-                                self.scroll_mode = Some((0, 0));
-                            }
-                        }
-                    },
-                },
-            };
+            process_event(
+                key_action,
+                event,
+                &mut state,
+                &mut self.layer_active,
+                &mut self.scroll_mode,
+            );
         }
 
-        if *mouse_event != (0, 0) || mouse_buttons != 0 || self.scroll_mode.is_some() {
+        if *mouse_event != (0, 0) || state.mouse_buttons != 0 || self.scroll_mode {
             self.layer_active[AUTO_MOUSE_LAYER] = true;
             self.auto_mouse_start = Some(now);
         } else if let Some(start) = self.auto_mouse_start {
-            if now.duration_since(start).as_millis() > AUTO_MOUSE_TIME {
+            if now.duration_since(start).as_millis() > AUTO_MOUSE_TIME || state.normal_key_pressed {
                 self.layer_active[AUTO_MOUSE_LAYER] = false;
             }
         };
 
-        let mouse_report = if *mouse_event == (0, 0) && mouse_buttons == 0 {
-            if !self.empty_mouse_sent {
-                self.empty_mouse_sent = true;
-                Some(MouseReport {
-                    x: 0,
-                    y: 0,
-                    buttons: 0,
-                    wheel: 0,
-                    pan: 0,
-                })
-            } else {
-                None
-            }
-        } else {
-            self.empty_mouse_sent = false;
-            if let Some((remained_wheel, remained_pan)) = &mut self.scroll_mode {
-                let wheel_raw = mouse_event.0 + *remained_wheel;
-                let pan_raw = mouse_event.1 + *remained_pan;
-                let wheel = wheel_raw / SCROLL_DIVIDER_Y;
-                let pan = pan_raw / SCROLL_DIVIDER_X;
-                *remained_wheel = wheel_raw % SCROLL_DIVIDER_Y;
-                *remained_pan = pan_raw % SCROLL_DIVIDER_X;
-                Some(MouseReport {
-                    x: 0,
-                    y: 0,
-                    buttons: mouse_buttons,
-                    wheel,
-                    pan,
-                })
-            } else {
-                Some(MouseReport {
-                    x: mouse_event.1,
-                    y: mouse_event.0,
-                    buttons: mouse_buttons,
-                    wheel: 0,
-                    pan: 0,
-                })
-            }
-        };
-
-        let keyboard_report = if modifier == 0 && keycodes_idx == 0 {
-            if !self.empty_kb_sent {
-                self.empty_kb_sent = true;
-                Some(KeyboardReport::default())
-            } else {
-                None
-            }
-        } else {
-            self.empty_kb_sent = false;
-            Some(KeyboardReport {
-                keycodes,
-                modifier,
-                reserved: 0,
-                leds: 0,
-            })
-        };
-
-        let media_keyboard_report = match media_key {
-            Some(key) => {
-                self.empty_mkb_sent = false;
-                let mut same = false;
-                if let Some(prev) = &self.previous_mkb {
-                    if prev.usage_id == key {
-                        same = true;
-                    }
-                }
-                if same {
-                    None
-                } else {
-                    self.previous_mkb = Some(MediaKeyboardReport { usage_id: key });
-                    Some(MediaKeyboardReport { usage_id: key })
-                }
-            }
-            None => {
-                self.previous_mkb = None;
-                if !self.empty_mkb_sent {
-                    self.empty_mkb_sent = true;
-                    Some(MediaKeyboardReport { usage_id: 0 })
-                } else {
-                    None
-                }
-            }
-        };
-
         StateReport {
-            keyboard_report,
-            mouse_report,
-            media_keyboard_report,
+            keyboard_report: self.kb_report_gen.gen(
+                state.keycodes,
+                state.modifier,
+                state.keycodes_idx as u8,
+            ),
+            mouse_report: self.mouse_report_gen.gen(
+                *mouse_event,
+                state.mouse_buttons,
+                self.scroll_mode,
+            ),
+            media_keyboard_report: self.mkb_report_gen.gen(state.media_key),
             highest_layer: self.layer_active.iter().rposition(|&x| x).unwrap_or(0) as u8,
         }
     }
 
-    fn get_keycode(&self, row: u8, col: u8) -> Option<KeyAction> {
+    fn highest_layer(&self) -> usize {
+        self.layer_active.iter().rposition(|&x| x).unwrap_or(0)
+    }
+
+    fn get_keycode(&self, row: u8, col: u8, layer: usize) -> Option<KeyAction> {
         if row >= ROWS as u8 || col >= (COLS * 2) as u8 {
             return None;
         }
 
-        let highest_layer = self.layer_active.iter().rposition(|&x| x).unwrap_or(0);
-
-        for layer in (0..=highest_layer).rev() {
+        for layer in (0..=layer).rev() {
             let key = &self.layers[layer][row as usize][col as usize];
             match key {
                 KeyDef::None => return None,
