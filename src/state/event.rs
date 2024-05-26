@@ -23,7 +23,7 @@ pub fn process_event(
         KeyStatusChangeType::Pressing(duration) => match key_action {
             KeyAction::Tap(kc) => Some(kc),
             KeyAction::TapHold(_tkc, hkc) => {
-                if duration.as_millis() > TAP_THRESHOLD {
+                if duration > TAP_THRESHOLD {
                     Some(hkc)
                 } else {
                     None
@@ -33,7 +33,7 @@ pub fn process_event(
         KeyStatusChangeType::Released(duration) => match key_action {
             KeyAction::Tap(kc) => Some(kc),
             KeyAction::TapHold(tkc, hkc) => {
-                if duration.as_millis() > TAP_THRESHOLD {
+                if duration > TAP_THRESHOLD {
                     Some(hkc)
                 } else {
                     Some(tkc)

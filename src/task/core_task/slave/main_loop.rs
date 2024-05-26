@@ -36,9 +36,9 @@ pub(super) async fn start(
                         s2m_tx.send(e).await;
                     }
 
-                    let took = start.elapsed().as_millis();
+                    let took = start.elapsed();
                     if took < MIN_MOUSE_SCAN_INTERVAL {
-                        Timer::after_millis(MIN_MOUSE_SCAN_INTERVAL - took).await;
+                        Timer::after(MIN_MOUSE_SCAN_INTERVAL - took).await;
                     }
                 }
             }
@@ -59,9 +59,9 @@ pub(super) async fn start(
                     s2m_tx.send(event).await;
                 }
 
-                let took = start.elapsed().as_millis();
+                let took = start.elapsed();
                 if took < MIN_KB_SCAN_INTERVAL {
-                    Timer::after_millis(MIN_KB_SCAN_INTERVAL - took).await;
+                    Timer::after(MIN_KB_SCAN_INTERVAL - took).await;
                 }
             }
         },

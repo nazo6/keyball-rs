@@ -146,9 +146,9 @@ pub(super) async fn start<'a, 'b>(
         )
         .await;
 
-        let took = start.elapsed().as_micros();
-        if took < MIN_KB_SCAN_INTERVAL * 1000 {
-            Timer::after_micros(MIN_KB_SCAN_INTERVAL * 1000 - took).await;
+        let took = start.elapsed();
+        if took < MIN_KB_SCAN_INTERVAL {
+            Timer::after(MIN_KB_SCAN_INTERVAL - took).await;
         }
     }
 }

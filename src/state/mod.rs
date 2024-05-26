@@ -6,7 +6,7 @@ use embassy_time::Instant;
 use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, MouseReport};
 
 use crate::{
-    constant::{AUTO_MOUSE_LAYER, AUTO_MOUSE_TIME, COLS, LAYER_NUM, ROWS},
+    constant::{AUTO_MOUSE_DURATION, AUTO_MOUSE_LAYER, COLS, LAYER_NUM, ROWS},
     driver::keyboard::{Hand, KeyChangeEventOneHand},
     keyboard::keycode::{KeyDef, Layer},
 };
@@ -133,7 +133,7 @@ impl State {
             self.layer_active[AUTO_MOUSE_LAYER] = true;
             self.auto_mouse_start = Some(now);
         } else if let Some(start) = self.auto_mouse_start {
-            if now.duration_since(start).as_millis() > AUTO_MOUSE_TIME || state.normal_key_pressed {
+            if now.duration_since(start) > AUTO_MOUSE_DURATION || state.normal_key_pressed {
                 self.layer_active[AUTO_MOUSE_LAYER] = false;
             }
         };
