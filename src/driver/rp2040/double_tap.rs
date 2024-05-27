@@ -4,14 +4,14 @@ use core::{
     ptr::{read_volatile, write_volatile},
 };
 
-use embassy_time::Timer;
+use embassy_time::{Duration, Timer};
 
 const BOOTLOADER_MAGIC: u32 = 0xDEADBEEF;
 
 #[link_section = ".uninit.FLAG"]
 static mut FLAG: UnsafeCell<MaybeUninit<u32>> = UnsafeCell::new(MaybeUninit::uninit());
 
-pub async fn check_double_tap(timeout: u64) {
+pub async fn check_double_tap(timeout: Duration) {
     unsafe {
         if read_volatile(FLAG.get().cast::<u32>()) == BOOTLOADER_MAGIC {
             write_volatile(FLAG.get().cast(), 0);
@@ -21,7 +21,7 @@ pub async fn check_double_tap(timeout: u64) {
 
         write_volatile(FLAG.get().cast(), BOOTLOADER_MAGIC);
 
-        Timer::after_millis(timeout).await;
+        Timer::after(timeout).await;
 
         write_volatile(FLAG.get().cast(), 0);
     }

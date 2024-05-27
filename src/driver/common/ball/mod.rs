@@ -1,6 +1,9 @@
-use crate::device::{
-    gpio::{Level, Output},
-    spi_ball::create_ball_spi,
+use crate::{
+    config::DEFAULT_CPI,
+    device::{
+        gpio::{Level, Output},
+        spi_ball::create_ball_spi,
+    },
 };
 use embassy_time::Timer;
 
@@ -22,7 +25,7 @@ impl<'d> Ball<'d> {
 
         Timer::after_millis(50).await;
 
-        let _ = pmw3360.set_cpi(300).await;
+        let _ = pmw3360.set_cpi(DEFAULT_CPI).await;
 
         Ok(Self { driver: pmw3360 })
     }

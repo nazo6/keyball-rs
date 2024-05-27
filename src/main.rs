@@ -6,7 +6,7 @@ use core::{
     sync::atomic::{self, Ordering},
 };
 
-use crate::utils::print;
+use crate::{config::DOUBLE_TAP_THRESHOLD, utils::print};
 use defmt_rtt as _;
 use device::peripherals::init_peripherals;
 use display::DISPLAY;
@@ -27,7 +27,7 @@ mod utils;
 async fn main(_spawner: Spawner) {
     let peripherals = init_peripherals();
 
-    driver::double_tap::check_double_tap(500).await;
+    driver::double_tap::check_double_tap(DOUBLE_TAP_THRESHOLD).await;
 
     DISPLAY.init(peripherals.display).await;
     utils::print!("Initializing...");
