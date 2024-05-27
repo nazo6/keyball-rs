@@ -12,7 +12,7 @@ use crate::{
 };
 
 use self::{
-    all_pressed::AllPressed,
+    all_pressed::{AllPressed, KeyStatusChangeType},
     event::process_event,
     report_gen::{
         keyboard::KeyboardReportGenerator, media_keyboard::MediaKeyboardReportGenerator,
@@ -95,38 +95,40 @@ impl State {
         mouse_event: &(i8, i8),
     ) -> StateReport {
         let now = Instant::now();
-        let layer = self.highest_layer();
-
-        let (left_events, right_events) = if self.master_hand == Hand::Left {
-            (master_events, slave_events)
-        } else {
-            (slave_events, master_events)
-        };
-        right_events.iter_mut().for_each(|event| {
-            event.col = ((COLS - 1) as u8 - event.col) + COLS as u8;
-        });
-
-        let split_events = right_events.iter().chain(left_events.iter());
-
-        let events = self.pressed.compose_events(split_events, now);
-        let events = events
-            .into_iter()
-            .filter_map(|e| {
-                let ka = self.get_keycode(e.row, e.col, layer)?;
-                Some((ka, e))
-            })
-            .collect::<heapless::Vec<_, 32>>();
-
+        let prev_highest_layer = self.highest_layer();
         let mut state = MainloopState::default();
 
-        for (key_action, event) in events.iter() {
+        let events = {
+            let (left_events, right_events) = if self.master_hand == Hand::Left {
+                (master_events, slave_events)
+            } else {
+                (slave_events, master_events)
+            };
+            right_events.iter_mut().for_each(|event| {
+                event.col = ((COLS - 1) as u8 - event.col) + COLS as u8;
+            });
+            let both_events = right_events.iter().chain(left_events.iter());
+
+            self.pressed
+                .compose_events_and_update_pressed(both_events, now)
+        };
+
+        for e in events.iter() {
+            let Some(ka) = self.get_keycode(e.row, e.col, prev_highest_layer) else {
+                continue;
+            };
             process_event(
-                key_action,
-                event,
+                &ka,
+                e,
                 &mut state,
                 &mut self.layer_active,
                 &mut self.scroll_mode,
             );
+
+            if let KeyStatusChangeType::Released(_) = e.change_type {}
+        }
+        if state.normal_key_pressed {
+            for e in events.iter() {}
         }
 
         if *mouse_event != (0, 0) || state.mouse_buttons != 0 || self.scroll_mode {
@@ -135,6 +137,7 @@ impl State {
         } else if let Some(start) = self.auto_mouse_start {
             if now.duration_since(start) > AUTO_MOUSE_DURATION || state.normal_key_pressed {
                 self.layer_active[AUTO_MOUSE_LAYER] = false;
+                self.auto_mouse_start = None;
             }
         };
 
@@ -150,7 +153,7 @@ impl State {
                 self.scroll_mode,
             ),
             media_keyboard_report: self.mkb_report_gen.gen(state.media_key),
-            highest_layer: self.layer_active.iter().rposition(|&x| x).unwrap_or(0) as u8,
+            highest_layer: prev_highest_layer as u8,
         }
     }
 

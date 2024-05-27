@@ -31,7 +31,7 @@ impl AllPressed {
             state: [[None; COLS * 2]; ROWS],
         }
     }
-    pub fn compose_events<'a>(
+    pub fn compose_events_and_update_pressed<'a>(
         &mut self,
         events: impl Iterator<Item = &'a KeyChangeEventOneHand>,
         update_time: Instant,

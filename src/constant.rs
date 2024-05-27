@@ -13,8 +13,11 @@ pub const COL_PIN_NUM: usize = 4;
 pub const SCAN_PIN_NUM: usize = 5;
 
 /// Time (msec) to wait for the next scan
-pub const MIN_KB_SCAN_INTERVAL: Duration = Duration::from_millis(20);
-pub const MIN_MOUSE_SCAN_INTERVAL: Duration = Duration::from_millis(10);
+pub const MIN_KB_SCAN_INTERVAL: Duration = Duration::from_millis(5);
+pub const MIN_MOUSE_SCAN_INTERVAL: Duration = Duration::from_millis(5);
+
+pub const USB_POLL_INTERVAL_KEYBOARD: u8 = 5;
+pub const USB_POLL_INTERVAL_MOUSE: u8 = 5;
 
 // Number of columns for one hand
 pub const COLS: usize = 7;

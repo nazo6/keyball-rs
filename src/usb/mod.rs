@@ -6,6 +6,7 @@ use usbd_hid::descriptor::{
     KeyboardReport, MediaKeyboardReport, MouseReport, SerializedDescriptor,
 };
 
+use crate::constant::{USB_POLL_INTERVAL_KEYBOARD, USB_POLL_INTERVAL_MOUSE};
 use crate::device::usb::DeviceDriver;
 
 pub mod device_handler;
@@ -64,7 +65,7 @@ pub fn create_usb(opts: UsbOpts) -> UsbResource {
         let config = embassy_usb::class::hid::Config {
             report_descriptor: KeyboardReport::desc(),
             request_handler: Some(opts.kb_request_handler),
-            poll_ms: 10,
+            poll_ms: USB_POLL_INTERVAL_KEYBOARD,
             max_packet_size: 64,
         };
         HidReaderWriter::<_, 1, 8>::new(&mut builder, opts.state_kb, config)
@@ -73,7 +74,7 @@ pub fn create_usb(opts: UsbOpts) -> UsbResource {
         let config = embassy_usb::class::hid::Config {
             report_descriptor: MouseReport::desc(),
             request_handler: Some(opts.mouse_request_handler),
-            poll_ms: 4,
+            poll_ms: USB_POLL_INTERVAL_MOUSE,
             max_packet_size: 64,
         };
         HidReaderWriter::<_, 1, 8>::new(&mut builder, opts.state_mouse, config)
@@ -82,7 +83,7 @@ pub fn create_usb(opts: UsbOpts) -> UsbResource {
         let config = embassy_usb::class::hid::Config {
             report_descriptor: MediaKeyboardReport::desc(),
             request_handler: Some(opts.mkb_request_handler),
-            poll_ms: 10,
+            poll_ms: USB_POLL_INTERVAL_KEYBOARD,
             max_packet_size: 64,
         };
         HidReaderWriter::<_, 1, 8>::new(&mut builder, opts.state_media_key, config)
