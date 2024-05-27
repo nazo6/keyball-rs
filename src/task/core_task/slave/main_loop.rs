@@ -2,7 +2,7 @@ use embassy_futures::join::join;
 use embassy_time::Timer;
 
 use crate::{
-    constant::{MIN_KB_SCAN_INTERVAL, MIN_MOUSE_SCAN_INTERVAL},
+    config::{MIN_KB_SCAN_INTERVAL, MIN_MOUSE_SCAN_INTERVAL},
     driver::{ball::Ball, keyboard::KeyboardScanner},
 };
 

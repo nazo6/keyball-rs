@@ -23,7 +23,8 @@ cargo install elf2uf2-rs
 ```
 
 2. BOOTSELボタンを押しながらProMicro RP2040をUSBに接続
-3. 実行
+3. `src/config.example.rs`を`src/config.rs`にコピー
+4. 実行
 
 ```
 cargo run --release

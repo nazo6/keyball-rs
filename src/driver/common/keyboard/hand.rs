@@ -1,4 +1,4 @@
-use crate::constant::LEFT_DETECT_JUMPER_KEY;
+use crate::config::LEFT_DETECT_JUMPER_KEY;
 use crate::device::gpio::Pull;
 
 use super::KeyboardScanner;

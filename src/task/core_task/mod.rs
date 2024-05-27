@@ -2,7 +2,7 @@ use embassy_futures::select::{select, Either};
 use embassy_time::Timer;
 
 use crate::{
-    constant::SPLIT_USB_TIMEOUT,
+    config::SPLIT_USB_TIMEOUT,
     driver::{
         ball::Ball,
         keyboard::{Hand, KeyboardScanner},

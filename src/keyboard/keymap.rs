@@ -1,4 +1,4 @@
-use crate::constant::LAYER_NUM;
+use crate::config::LAYER_NUM;
 
 use super::keycode::key::*;
 use super::keycode::layer::*;

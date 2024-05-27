@@ -2,7 +2,7 @@ use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use embassy_sync::channel::{Channel, Receiver, Sender};
 use serde::{Deserialize, Serialize};
 
-use crate::constant::SPLIT_CHANNEL_SIZE;
+use crate::config::SPLIT_CHANNEL_SIZE;
 use crate::task::led_task::LedControl;
 
 pub type S2mChannel = Channel<ThreadModeRawMutex, SlaveToMaster, SPLIT_CHANNEL_SIZE>;

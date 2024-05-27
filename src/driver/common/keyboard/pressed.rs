@@ -1,6 +1,6 @@
 use core::fmt::{self, Formatter};
 
-use crate::constant::{COLS, ROWS};
+use crate::config::{COLS, ROWS};
 
 pub struct Pressed([[bool; COLS]; ROWS]);
 

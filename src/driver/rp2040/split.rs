@@ -7,7 +7,7 @@ use embassy_time::Timer;
 
 use fixed::traits::ToFixed;
 
-use crate::constant::SPLIT_CLK_DIVIDER;
+use crate::config::SPLIT_CLK_DIVIDER;
 use crate::device::interrupts::Irqs;
 use crate::device::peripherals::SplitPeripherals;
 

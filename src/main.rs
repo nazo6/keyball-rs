@@ -13,7 +13,7 @@ use display::DISPLAY;
 use embassy_executor::Spawner;
 use task::TaskPeripherals;
 
-mod constant;
+mod config;
 mod device;
 mod display;
 mod driver;

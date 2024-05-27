@@ -1,6 +1,6 @@
 use usbd_hid::descriptor::MouseReport;
 
-use crate::constant::{SCROLL_DIVIDER_X, SCROLL_DIVIDER_Y};
+use crate::config::{SCROLL_DIVIDER_X, SCROLL_DIVIDER_Y};
 
 pub struct MouseReportGenerator {
     empty_mouse_sent: bool,

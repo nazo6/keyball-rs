@@ -6,7 +6,7 @@ use usbd_hid::descriptor::{
     KeyboardReport, MediaKeyboardReport, MouseReport, SerializedDescriptor,
 };
 
-use crate::constant::{USB_POLL_INTERVAL_KEYBOARD, USB_POLL_INTERVAL_MOUSE};
+use crate::config::{USB_POLL_INTERVAL_KEYBOARD, USB_POLL_INTERVAL_MOUSE};
 use crate::device::usb::DeviceDriver;
 
 pub mod device_handler;

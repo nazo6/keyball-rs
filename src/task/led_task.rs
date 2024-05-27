@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use smart_leds::RGB8;
 
 use crate::{
-    constant::{LEFT_LED_NUM, RIGHT_LED_NUM},
+    config::{LEFT_LED_NUM, RIGHT_LED_NUM},
     driver::{keyboard::Hand, led::Ws2812},
 };
 

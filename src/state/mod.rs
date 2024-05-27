@@ -6,7 +6,7 @@ use embassy_time::Instant;
 use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, MouseReport};
 
 use crate::{
-    constant::{AUTO_MOUSE_DURATION, AUTO_MOUSE_LAYER, COLS, LAYER_NUM, ROWS},
+    config::{AUTO_MOUSE_DURATION, AUTO_MOUSE_LAYER, COLS, LAYER_NUM, ROWS},
     driver::keyboard::{Hand, KeyChangeEventOneHand},
     keyboard::keycode::{KeyDef, Layer},
 };

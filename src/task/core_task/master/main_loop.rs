@@ -4,7 +4,7 @@ use embassy_time::Timer;
 use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, MouseReport};
 
 use crate::{
-    constant::MIN_KB_SCAN_INTERVAL,
+    config::MIN_KB_SCAN_INTERVAL,
     display::DISPLAY,
     driver::{
         ball::Ball,

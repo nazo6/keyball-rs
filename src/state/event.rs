@@ -1,5 +1,5 @@
 use crate::{
-    constant::{LAYER_NUM, TAP_THRESHOLD},
+    config::{LAYER_NUM, TAP_THRESHOLD},
     keyboard::keycode::{layer::LayerOp, special::Special, KeyAction, KeyCode},
 };
 

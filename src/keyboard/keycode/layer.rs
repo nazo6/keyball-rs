@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use crate::{constant::LAYER_NUM, keyboard::keycode::KeyDef};
+use crate::{config::LAYER_NUM, keyboard::keycode::KeyDef};
 
 use super::{KeyAction, KeyCode};
 

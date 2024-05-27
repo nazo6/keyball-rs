@@ -1,4 +1,4 @@
-use crate::constant::{COLS, ROWS};
+use crate::config::{COLS, ROWS};
 
 pub mod key;
 pub mod layer;

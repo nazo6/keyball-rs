@@ -1,4 +1,4 @@
-use crate::constant::{COL_PIN_NUM, LEFT_DETECT_JUMPER_KEY, SCAN_PIN_NUM};
+use crate::config::{COL_PIN_NUM, LEFT_DETECT_JUMPER_KEY, SCAN_PIN_NUM};
 use crate::device::gpio::{Flex, Pull};
 use crate::device::peripherals::KeyboardPeripherals;
 
