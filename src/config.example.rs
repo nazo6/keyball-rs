@@ -44,6 +44,7 @@ pub const LAYER_NUM: usize = 4;
 
 pub const AUTO_MOUSE_DURATION: Duration = Duration::from_millis(500);
 pub const AUTO_MOUSE_LAYER: usize = 1;
+pub const AUTO_MOUSE_THRESHOLD: u8 = 1;
 
 pub const DEFAULT_CPI: u16 = 400;
 pub const SCROLL_DIVIDER_X: i8 = 20;

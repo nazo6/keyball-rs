@@ -2,7 +2,7 @@ use embassy_time::Instant;
 use usbd_hid::descriptor::MouseReport;
 
 use crate::{
-    config::{AUTO_MOUSE_DURATION, AUTO_MOUSE_LAYER},
+    config::{AUTO_MOUSE_DURATION, AUTO_MOUSE_LAYER, AUTO_MOUSE_THRESHOLD},
     keyboard::keycode::{special::Special, KeyCode},
     state::{
         common::{CommonLocalState, CommonState},
@@ -18,13 +18,17 @@ mod reporter;
 pub struct MouseState {
     scroll_mode: bool,
     reporter: reporter::MouseReportGenerator,
-    aml_start: Option<Instant>,
+    aml: AmlState,
+}
+
+pub struct AmlState {
+    start: Option<Instant>,
 }
 
 impl MouseState {
     pub fn new() -> Self {
         Self {
-            aml_start: None,
+            aml: AmlState { start: None },
             scroll_mode: false,
             reporter: reporter::MouseReportGenerator::new(),
         }
@@ -83,15 +87,19 @@ impl LocalStateManager for MouseLocalState {
         global_mouse_state: &mut MouseState,
     ) -> Option<MouseReport> {
         let now = embassy_time::Instant::now();
-        if self.mouse_event != (0, 0) || self.mouse_button != 0 || global_mouse_state.scroll_mode {
+        if self.mouse_event.0.unsigned_abs() > AUTO_MOUSE_THRESHOLD
+            || self.mouse_event.1.unsigned_abs() > AUTO_MOUSE_THRESHOLD
+            || self.mouse_button != 0
+            || global_mouse_state.scroll_mode
+        {
             common_state.layer_active[AUTO_MOUSE_LAYER] = true;
-            global_mouse_state.aml_start = Some(now);
-        } else if let Some(start) = global_mouse_state.aml_start {
-            if now.duration_since(start) > AUTO_MOUSE_DURATION
+            global_mouse_state.aml.start = Some(now);
+        } else if let Some(start) = &global_mouse_state.aml.start {
+            if now.duration_since(*start) > AUTO_MOUSE_DURATION
                 || common_local_state.normal_key_pressed
             {
                 common_state.layer_active[AUTO_MOUSE_LAYER] = false;
-                global_mouse_state.aml_start = None;
+                global_mouse_state.aml.start = None;
             }
         };
 
