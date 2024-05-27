@@ -1,4 +1,4 @@
-use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport};
+use usbd_hid::descriptor::MediaKeyboardReport;
 
 pub struct MediaKeyboardReportGenerator {
     empty_mkb_sent: bool,

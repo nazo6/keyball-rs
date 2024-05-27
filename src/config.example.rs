@@ -47,6 +47,7 @@ pub const AUTO_MOUSE_LAYER: usize = 1;
 
 pub const DEFAULT_CPI: u16 = 400;
 pub const SCROLL_DIVIDER_X: i8 = 20;
+/// この値をプラスにするとスクロールが反転します(Macユーザー向け)
 pub const SCROLL_DIVIDER_Y: i8 = -12;
 
 pub const TAP_THRESHOLD: Duration = Duration::from_millis(200);

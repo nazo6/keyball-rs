@@ -96,7 +96,7 @@ pub(super) async fn start<'a, 'b>(
         })
         .await;
 
-        let state_report = state.update(&mut master_events, &mut slave_events, &mouse);
+        let state_report = state.update(&mut master_events, &mut slave_events, mouse);
 
         join(
             async {
