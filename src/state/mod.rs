@@ -36,6 +36,26 @@ pub struct State {
     media_keyboard: manager::media_keyboard::MediaKeyboardState,
 }
 
+macro_rules! process_event {
+    ($cs:expr, $cls:expr, $kc:expr, $event:expr, ($s1:expr, $s1g:expr)) => {
+        $s1.process_event($cs, $cls, $s1g, $kc, $event)
+    };
+    ($cs:expr, $cls:expr, $kc:expr, $event:expr, ($s1:expr, $s1g:expr), $(($s:expr, $sg:expr)),+) => {
+        $s1.process_event($cs, $cls, $s1g, $kc, $event);
+        process_event!($cs, $cls, $kc, $event, $(($s, $sg)),+);
+    };
+}
+
+macro_rules! loop_end {
+    ($cs:expr, $cls:expr, ($s1:expr, $s1g:expr)) => {
+        $s1.loop_end($cs, $cls, $s1g)
+    };
+    ($cs:expr, $cls:expr, ($s1:expr, $s1g:expr), $(($s:expr, $sg:expr)),+) => {
+        $s1.loop_end($cs, $cls, $s1g);
+        loop_end!($cs, $cls, $(($s, $sg)),+);
+    };
+}
+
 impl State {
     pub fn new(layers: [Layer; LAYER_NUM], master_hand: Hand) -> Self {
         Self {
@@ -85,40 +105,31 @@ impl State {
                 continue;
             };
 
-            mls.process_event(
+            process_event!(
                 &mut self.common_state,
                 &mut cls,
-                &mut self.mouse,
                 &kc,
                 event,
+                (mls, &mut self.mouse),
+                (kls, &mut self.keyboard),
+                (mkls, &mut self.media_keyboard),
+                (lls, &mut ())
             );
-            kls.process_event(
-                &mut self.common_state,
-                &mut cls,
-                &mut self.keyboard,
-                &kc,
-                event,
-            );
-            mkls.process_event(
-                &mut self.common_state,
-                &mut cls,
-                &mut self.media_keyboard,
-                &kc,
-                event,
-            );
-            lls.process_event(&mut self.common_state, &mut cls, &mut (), &kc, event);
         }
 
-        let mouse_report = mls.finalize(&mut self.common_state, &mut cls, &mut self.mouse);
-        let keyboard_report = kls.finalize(&mut self.common_state, &mut cls, &mut self.keyboard);
-        let media_keyboard_report =
-            mkls.finalize(&mut self.common_state, &mut cls, &mut self.media_keyboard);
-        let _ = lls.finalize(&mut self.common_state, &mut cls, &mut ());
+        loop_end!(
+            &mut self.common_state,
+            &mut cls,
+            (mls, &mut self.mouse),
+            (kls, &mut self.keyboard),
+            (mkls, &mut self.media_keyboard),
+            (lls, &mut ())
+        );
 
         StateReport {
-            keyboard_report,
-            mouse_report,
-            media_keyboard_report,
+            keyboard_report: kls.report(&self.common_state, &cls, &mut self.keyboard),
+            mouse_report: mls.report(&self.common_state, &cls, &mut self.mouse),
+            media_keyboard_report: mkls.report(&self.common_state, &cls, &mut self.media_keyboard),
             highest_layer: prev_highest_layer as u8,
         }
     }

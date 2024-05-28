@@ -26,6 +26,7 @@ pub struct GlobalDisplay {
     pub inner: Mutex<ThreadModeRawMutex, Option<Oled<'static>>>,
 }
 
+#[allow(dead_code)]
 impl GlobalDisplay {
     pub const fn new() -> Self {
         Self {

@@ -55,10 +55,10 @@ impl LocalStateManager for MediaKeyboardLocalState {
         };
     }
 
-    fn finalize(
+    fn report(
         self,
-        _common_state: &mut CommonState,
-        _common_local_state: &mut CommonLocalState,
+        common_state: &CommonState,
+        common_local_state: &CommonLocalState,
         global_state: &mut Self::GlobalState,
     ) -> Option<Self::Report> {
         global_state.reporter.gen(self.media_key)

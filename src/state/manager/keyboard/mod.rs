@@ -73,10 +73,10 @@ impl LocalStateManager for KeyboardLocalState {
         };
     }
 
-    fn finalize(
+    fn report(
         self,
-        _common_state: &mut CommonState,
-        common_local_state: &mut CommonLocalState,
+        common_state: &CommonState,
+        common_local_state: &CommonLocalState,
         global_state: &mut Self::GlobalState,
     ) -> Option<Self::Report> {
         global_state

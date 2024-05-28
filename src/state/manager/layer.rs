@@ -49,10 +49,10 @@ impl LocalStateManager for LayerLocalState {
         };
     }
 
-    fn finalize(
+    fn report(
         self,
-        _common_state: &mut CommonState,
-        _common_local_state: &mut CommonLocalState,
+        _common_state: &CommonState,
+        _common_local_state: &CommonLocalState,
         _global_state: &mut Self::GlobalState,
     ) -> Option<Self::Report> {
         None

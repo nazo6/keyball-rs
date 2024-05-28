@@ -3,7 +3,7 @@ use usbd_hid::descriptor::MouseReport;
 
 use crate::{
     config::{AUTO_MOUSE_DURATION, AUTO_MOUSE_LAYER, AUTO_MOUSE_THRESHOLD},
-    keyboard::keycode::{special::Special, KeyCode},
+    keyboard::keycode::{key::Key, special::Special, KeyCode},
     state::{
         common::{CommonLocalState, CommonState},
         pressed::{KeyStatusChangeType, KeyStatusUpdateEvent},
@@ -19,6 +19,7 @@ pub struct MouseState {
     scroll_mode: bool,
     reporter: reporter::MouseReportGenerator,
     aml: AmlState,
+    arrowball_move: (i8, i8),
 }
 
 pub struct AmlState {
@@ -31,6 +32,7 @@ impl MouseState {
             aml: AmlState { start: None },
             scroll_mode: false,
             reporter: reporter::MouseReportGenerator::new(),
+            arrowball_move: (0, 0),
         }
     }
 }
@@ -80,32 +82,64 @@ impl LocalStateManager for MouseLocalState {
         }
     }
 
-    fn finalize(
-        self,
+    fn loop_end(
+        &mut self,
         common_state: &mut CommonState,
         common_local_state: &mut CommonLocalState,
         global_mouse_state: &mut MouseState,
-    ) -> Option<MouseReport> {
-        if self.mouse_event.0.unsigned_abs() > AUTO_MOUSE_THRESHOLD
-            || self.mouse_event.1.unsigned_abs() > AUTO_MOUSE_THRESHOLD
-            || self.mouse_button != 0
-            || global_mouse_state.scroll_mode
-        {
-            common_state.layer_active[AUTO_MOUSE_LAYER] = true;
-            global_mouse_state.aml.start = Some(common_local_state.now);
-        } else if let Some(start) = &global_mouse_state.aml.start {
-            if common_local_state.now.duration_since(*start) > AUTO_MOUSE_DURATION
-                || common_local_state.normal_key_pressed
-            {
-                common_state.layer_active[AUTO_MOUSE_LAYER] = false;
-                global_mouse_state.aml.start = None;
-            }
-        };
+    ) {
+        if common_state.layers[common_local_state.prev_highest_layer].arrowball {
+            global_mouse_state.arrowball_move.0 += self.mouse_event.0;
+            global_mouse_state.arrowball_move.1 += self.mouse_event.1;
 
-        global_mouse_state.reporter.gen(
+            let mut reset = true;
+            if global_mouse_state.arrowball_move.1 > 50 {
+                common_local_state.keycodes.push(Key::Right as u8).ok();
+            } else if global_mouse_state.arrowball_move.1 < -50 {
+                common_local_state.keycodes.push(Key::Left as u8).ok();
+            } else if global_mouse_state.arrowball_move.0 > 50 {
+                common_local_state.keycodes.push(Key::Down as u8).ok();
+            } else if global_mouse_state.arrowball_move.0 < -50 {
+                common_local_state.keycodes.push(Key::Up as u8).ok();
+            } else {
+                reset = false;
+            }
+
+            if reset {
+                global_mouse_state.arrowball_move = (0, 0);
+            }
+
+            self.mouse_event = (0, 0);
+        } else {
+            global_mouse_state.arrowball_move = (0, 0);
+            if self.mouse_event.0.unsigned_abs() > AUTO_MOUSE_THRESHOLD
+                || self.mouse_event.1.unsigned_abs() > AUTO_MOUSE_THRESHOLD
+                || self.mouse_button != 0
+                || global_mouse_state.scroll_mode
+            {
+                common_state.layer_active[AUTO_MOUSE_LAYER] = true;
+                global_mouse_state.aml.start = Some(common_local_state.now);
+            } else if let Some(start) = &global_mouse_state.aml.start {
+                if common_local_state.now.duration_since(*start) > AUTO_MOUSE_DURATION
+                    || common_local_state.normal_key_pressed
+                {
+                    common_state.layer_active[AUTO_MOUSE_LAYER] = false;
+                    global_mouse_state.aml.start = None;
+                }
+            }
+        }
+    }
+
+    fn report(
+        self,
+        _common_state: &CommonState,
+        _common_local_state: &CommonLocalState,
+        global_state: &mut Self::GlobalState,
+    ) -> Option<Self::Report> {
+        global_state.reporter.gen(
             self.mouse_event,
             self.mouse_button,
-            global_mouse_state.scroll_mode,
+            global_state.scroll_mode,
         )
     }
 }
