@@ -19,7 +19,7 @@ const L0: LayerMap = [
     [  TAB  , Q     , W     , E     , R     , T     , _____ , /**/ _____ , Y     , U     , I     , O     ,P     , MINUS ],
     [  ESC  , A     , S     , D     , F     , G     , _____ , /**/ _____ , H     , J     , K     , L     ,SEMI  , JCOLN ],
     [ L_SHFT, Z     , X     , C     , V     , B     , JLBRC , /**/ JRBRC , N     , M     , COMM  , DOT   ,SLASH ,JBSLSH ],
-    [ L_CTRL, L_GUI , TG(3) , TG(2) , L_ALT , SPACE , SPACE , /**/ BS    ,L2ENTER, _____ , _____ , _____ ,JCARET, JAT   ],
+    [ L_CTRL, L_GUI , MV(3) , TG(2) , L_ALT , SPACE , SPACE , /**/ BS    ,L2ENTER, _____ , _____ , _____ ,JCARET, JAT   ],
 ];
 
 #[rustfmt::skip]
