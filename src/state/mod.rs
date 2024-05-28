@@ -1,6 +1,5 @@
 #![allow(clippy::single_match)]
 
-use embassy_time::Instant;
 use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, MouseReport};
 
 use crate::{
@@ -57,17 +56,14 @@ impl State {
         slave_events: &mut [KeyChangeEventOneHand],
         mouse_event: (i8, i8),
     ) -> StateReport {
-        let mut common_local_state = CommonLocalState {
-            normal_key_pressed: false,
-        };
-
-        let mut mouse_local_state = manager::mouse::MouseLocalState::new(mouse_event);
-        let mut keyboard_local_state = manager::keyboard::KeyboardLocalState::new();
-        let mut mkb_local_state = manager::media_keyboard::MediaKeyboardLocalState::new();
-        let mut layer_local_state = manager::layer::LayerLocalState::new();
-
-        let now = Instant::now();
         let prev_highest_layer = self.common_state.highest_layer();
+
+        let mut cls = CommonLocalState::new(prev_highest_layer);
+
+        let mut mls = manager::mouse::MouseLocalState::new(mouse_event);
+        let mut kls = manager::keyboard::KeyboardLocalState::new();
+        let mut mkls = manager::media_keyboard::MediaKeyboardLocalState::new();
+        let mut lls = manager::layer::LayerLocalState::new();
 
         let events = {
             let (left_events, right_events) = if self.master_hand == Hand::Left {
@@ -81,7 +77,7 @@ impl State {
             let both_events = right_events.iter().chain(left_events.iter());
 
             self.pressed
-                .compose_events_and_update_pressed(both_events, now)
+                .compose_events_and_update_pressed(both_events, cls.now)
         };
 
         for event in events.iter() {
@@ -89,53 +85,35 @@ impl State {
                 continue;
             };
 
-            mouse_local_state.process_event(
+            mls.process_event(
                 &mut self.common_state,
-                &mut common_local_state,
+                &mut cls,
                 &mut self.mouse,
                 &kc,
                 event,
             );
-            keyboard_local_state.process_event(
+            kls.process_event(
                 &mut self.common_state,
-                &mut common_local_state,
+                &mut cls,
                 &mut self.keyboard,
                 &kc,
                 event,
             );
-            mkb_local_state.process_event(
+            mkls.process_event(
                 &mut self.common_state,
-                &mut common_local_state,
+                &mut cls,
                 &mut self.media_keyboard,
                 &kc,
                 event,
             );
-            layer_local_state.process_event(
-                &mut self.common_state,
-                &mut common_local_state,
-                &mut (),
-                &kc,
-                event,
-            );
+            lls.process_event(&mut self.common_state, &mut cls, &mut (), &kc, event);
         }
 
-        let mouse_report = mouse_local_state.finalize(
-            &mut self.common_state,
-            &mut common_local_state,
-            &mut self.mouse,
-        );
-        let keyboard_report = keyboard_local_state.finalize(
-            &mut self.common_state,
-            &mut common_local_state,
-            &mut self.keyboard,
-        );
-        let media_keyboard_report = mkb_local_state.finalize(
-            &mut self.common_state,
-            &mut common_local_state,
-            &mut self.media_keyboard,
-        );
-        let _ =
-            layer_local_state.finalize(&mut self.common_state, &mut common_local_state, &mut ());
+        let mouse_report = mls.finalize(&mut self.common_state, &mut cls, &mut self.mouse);
+        let keyboard_report = kls.finalize(&mut self.common_state, &mut cls, &mut self.keyboard);
+        let media_keyboard_report =
+            mkls.finalize(&mut self.common_state, &mut cls, &mut self.media_keyboard);
+        let _ = lls.finalize(&mut self.common_state, &mut cls, &mut ());
 
         StateReport {
             keyboard_report,

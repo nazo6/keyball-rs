@@ -25,8 +25,6 @@ impl KeyboardState {
 }
 
 pub struct KeyboardLocalState {
-    pub keycodes: [u8; 6],
-    pub keycodes_idx: usize,
     pub modifier: u8,
     pub media_key: Option<u16>,
 }
@@ -34,8 +32,6 @@ pub struct KeyboardLocalState {
 impl KeyboardLocalState {
     pub fn new() -> Self {
         Self {
-            keycodes: [0; 6],
-            keycodes_idx: 0,
             modifier: 0,
             media_key: None,
         }
@@ -60,10 +56,7 @@ impl LocalStateManager for KeyboardLocalState {
                 if let KeyStatusChangeType::Pressed = event.change_type {
                     common_local_state.normal_key_pressed = true;
                 }
-                if self.keycodes_idx < 6 {
-                    self.keycodes[self.keycodes_idx] = *key as u8;
-                    self.keycodes_idx += 1;
-                }
+                common_local_state.keycodes.push(*key as u8).ok();
             }
             KeyCode::Media(key) => {
                 self.media_key = Some(*key as u16);
@@ -72,10 +65,8 @@ impl LocalStateManager for KeyboardLocalState {
                 self.modifier |= mod_key.bits();
             }
             KeyCode::WithModifier(mod_key, key) => {
-                if self.keycodes_idx < 6 {
-                    self.keycodes[self.keycodes_idx] = *key as u8;
+                if common_local_state.keycodes.push(*key as u8).is_ok() {
                     self.modifier |= mod_key.bits();
-                    self.keycodes_idx += 1;
                 }
             }
             _ => {}
@@ -85,11 +76,11 @@ impl LocalStateManager for KeyboardLocalState {
     fn finalize(
         self,
         _common_state: &mut CommonState,
-        _common_local_state: &mut CommonLocalState,
+        common_local_state: &mut CommonLocalState,
         global_state: &mut Self::GlobalState,
     ) -> Option<Self::Report> {
         global_state
             .reporter
-            .gen(self.keycodes, self.modifier, self.keycodes_idx as u8)
+            .gen(&common_local_state.keycodes, self.modifier)
     }
 }

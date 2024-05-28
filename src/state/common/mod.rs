@@ -1,5 +1,7 @@
 use core::array::from_fn;
 
+use embassy_time::Instant;
+
 use crate::{
     config::{COLS, LAYER_NUM, ROWS},
     keyboard::keycode::{KeyAction, KeyDef, Layer},
@@ -34,7 +36,7 @@ impl CommonState {
         }
 
         for layer in (0..=layer).rev() {
-            let key = &self.layers[layer][row as usize][col as usize];
+            let key = &self.layers[layer].map[row as usize][col as usize];
             match key {
                 KeyDef::None => return None,
                 KeyDef::Inherit => continue,
@@ -47,5 +49,19 @@ impl CommonState {
 }
 
 pub(super) struct CommonLocalState {
+    pub prev_highest_layer: usize,
     pub normal_key_pressed: bool,
+    pub keycodes: heapless::Vec<u8, 6>,
+    pub now: Instant,
+}
+
+impl CommonLocalState {
+    pub fn new(prev_highest_layer: usize) -> Self {
+        Self {
+            prev_highest_layer,
+            normal_key_pressed: false,
+            keycodes: heapless::Vec::new(),
+            now: Instant::now(),
+        }
+    }
 }

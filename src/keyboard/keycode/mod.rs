@@ -35,4 +35,9 @@ pub enum KeyDef {
 pub const _____: KeyDef = KeyDef::Inherit;
 pub const XXXXX: KeyDef = KeyDef::None;
 
-pub type Layer = [[KeyDef; COLS * 2]; ROWS];
+pub type LayerMap = [[KeyDef; COLS * 2]; ROWS];
+
+pub struct Layer {
+    pub map: [[KeyDef; COLS * 2]; ROWS],
+    pub arrowball: bool,
+}

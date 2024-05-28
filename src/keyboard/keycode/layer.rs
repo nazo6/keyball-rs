@@ -10,7 +10,7 @@ pub enum LayerOp {
     Toggle(usize),
 }
 
-pub const fn MOVE(n: usize) -> KeyDef {
+pub const fn MV(n: usize) -> KeyDef {
     assert!(n < LAYER_NUM);
     KeyDef::Key(KeyAction::Tap(KeyCode::Layer(LayerOp::Move(n))))
 }

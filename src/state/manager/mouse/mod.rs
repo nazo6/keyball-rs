@@ -86,16 +86,15 @@ impl LocalStateManager for MouseLocalState {
         common_local_state: &mut CommonLocalState,
         global_mouse_state: &mut MouseState,
     ) -> Option<MouseReport> {
-        let now = embassy_time::Instant::now();
         if self.mouse_event.0.unsigned_abs() > AUTO_MOUSE_THRESHOLD
             || self.mouse_event.1.unsigned_abs() > AUTO_MOUSE_THRESHOLD
             || self.mouse_button != 0
             || global_mouse_state.scroll_mode
         {
             common_state.layer_active[AUTO_MOUSE_LAYER] = true;
-            global_mouse_state.aml.start = Some(now);
+            global_mouse_state.aml.start = Some(common_local_state.now);
         } else if let Some(start) = &global_mouse_state.aml.start {
-            if now.duration_since(*start) > AUTO_MOUSE_DURATION
+            if common_local_state.now.duration_since(*start) > AUTO_MOUSE_DURATION
                 || common_local_state.normal_key_pressed
             {
                 common_state.layer_active[AUTO_MOUSE_LAYER] = false;
