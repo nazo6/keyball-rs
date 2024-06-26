@@ -24,7 +24,8 @@ cargo install elf2uf2-rs
 
 2. BOOTSELボタンを押しながらProMicro RP2040をUSBに接続
 3. `src/config.example.rs`を`src/config.rs`にコピー
-4. 実行
+4. `src/keyboard/keymap.example.rs`を`src/keyboard/keymap.rs`にコピー
+5. 実行
 
 ```
 cargo run --release
@@ -66,7 +67,7 @@ cargo run --release
 ### やりたいこと
 
 - [ ] 高度なキーマップ機構(レイヤなど)
-- [ ] 左トラックボール対応
+- [x] 左トラックボール対応
 
 ### 将来の展望
 

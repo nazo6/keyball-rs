@@ -19,7 +19,7 @@ impl Aml {
 
     pub fn enabled(&mut self, now: Instant, mouse_event: (i8, i8), continue_aml: bool) -> bool {
         if let Some(start) = self.start {
-            if continue_aml {
+            if !continue_aml {
                 if now.duration_since(start) > AUTO_MOUSE_DURATION {
                     self.start = None;
                     self.move_acc = 0;
