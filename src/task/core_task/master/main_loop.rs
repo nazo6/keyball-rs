@@ -112,6 +112,7 @@ pub(super) async fn start<'a, 'b>(
                     1 => LedControl::Start(LedAnimation::SolidColor(0, 0, 1)),
                     2 => LedControl::Start(LedAnimation::SolidColor(1, 0, 0)),
                     3 => LedControl::Start(LedAnimation::SolidColor(0, 1, 0)),
+                    4 => LedControl::Start(LedAnimation::SolidColor(1, 1, 0)),
                     _ => LedControl::Start(LedAnimation::SolidColor(0, 0, 0)),
                 };
 

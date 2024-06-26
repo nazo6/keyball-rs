@@ -231,6 +231,10 @@ normal!(COMM, Key, Comma);
 normal!(LBRC, Key, LeftBracket);
 normal!(RBRC, Key, RightBracket);
 normal!(PRTSC, Key, PrintScreen);
+normal!(BSLSH, Key, Backslash);
+normal!(SCLN, Key, Semicolon);
+normal!(PGUP, Key, PageUp);
+normal!(PGDN, Key, PageDown);
 
 // Japanese keys
 normal!(JCOLN, Key, Quote);
