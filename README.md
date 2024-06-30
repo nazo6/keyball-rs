@@ -1,3 +1,9 @@
+> [!IMPORTANT]
+>
+> リポジトリを移動しました。
+>
+> https://github.com/nazo6/rktk/tree/master/keyboards/keyball61-rp2040
+
 # keyball-embassy-rp2040
 
 ProMicro RP2040用のRust(+Embassy)製Keyballファームウェアです。
