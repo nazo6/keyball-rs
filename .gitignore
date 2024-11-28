@@ -1,3 +1,4 @@
 target
 src/config.rs
 src/keyboard/keymap.rs
+/vendor/vendor

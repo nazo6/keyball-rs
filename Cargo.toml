@@ -1,65 +1,67 @@
-[package]
-edition = "2021"
-name = "keyball-embassy-rp2040"
-version = "0.1.0"
-authors = ["nazo6 <git@nazo6.dev>"]
+cargo-features = ["profile-rustflags"]
+
+[workspace]
+members = [
+  "keyball-common",
+  "keyball61/keyball61-nrf52840",
+  "keyball61/keyball61-rp2040",
+]
 resolver = "2"
 
-[dependencies]
-embassy-embedded-hal = { version = "0.1.0", git = "https://github.com/embassy-rs/embassy", features = [
-  "defmt",
-] }
-embassy-executor = { version = "0.5.0", git = "https://github.com/embassy-rs/embassy", features = [
-  "task-arena-size-32768",
+[workspace.package]
+version = "0.1.0"
+authors = ["nazo6"]
+description = "Rktk keyball implemention"
+license = "MIT"
+edition = "2021"
+repository = "https://github.com/nazo6/keyball-rs"
+
+[workspace.dependencies]
+keyball-common = { path = "keyball-common" }
+
+rktk = { path = "../rktk/lib/rktk" }
+rktk-drivers-common = { path = "../rktk/lib/rktk-drivers-common" }
+rktk-drivers-nrf = { path = "../rktk/lib/rktk-drivers-nrf" }
+rktk-drivers-rp = { path = "../rktk/lib/rktk-drivers-rp" }
+
+embassy-executor = { version = "0.6.1", features = [
   "arch-cortex-m",
   "executor-thread",
   "executor-interrupt",
-  "defmt",
   "integrated-timers",
+  "task-arena-size-65536",
+  # "nightly",
 ] }
-embassy-time = { version = "0.3.0", git = "https://github.com/embassy-rs/embassy", features = [
-  "defmt",
-  "defmt-timestamp-uptime",
-] }
-embassy-rp = { version = "0.1.0", git = "https://github.com/embassy-rs/embassy", features = [
-  "defmt",
+embassy-time = { version = "0.3.2" }
+embassy-sync = { version = "0.6.0" }
+embedded-alloc = "0.6.0"
+
+embassy-rp = { version = "0.2.0", features = [
   "unstable-pac",
   "time-driver",
   "critical-section-impl",
 ] }
-embassy-usb = { version = "0.2.0", git = "https://github.com/embassy-rs/embassy", features = [
-  "defmt",
+
+embassy-nrf = { version = "0.2.0", features = [
+  "gpiote",
+  "time-driver-rtc1",
+  "nrf52840",
+  "nfc-pins-as-gpio",
+  "unstable-pac",
 ] }
-embassy-futures = { version = "0.1.0", git = "https://github.com/embassy-rs/embassy" }
-embassy-sync = { version = "0.5.0", git = "https://github.com/embassy-rs/embassy" }
+nrf-softdevice = { git = "https://github.com/embassy-rs/nrf-softdevice", features = [
+  "ble-peripheral",
+  "ble-central",
+  "critical-section-impl",
+  "s140",
+  "nrf52840",
+] }
 
-defmt = "0.3"
-defmt-rtt = "0.4"
-fixed = "1.23.1"
-fixed-macro = "1.2"
+cortex-m = { version = "0.7.7", features = ["inline-asm"] }
+cortex-m-rt = { version = "0.7.3" }
 
-cortex-m = { version = "0.7.6", features = ["inline-asm"] }
-cortex-m-rt = "0.7.0"
+ssd1306 = { version = "0.9.0" }
 
-usbd-hid = "0.7.0"
-ssd1306 = { git = "https://github.com/bugadani/ssd1306", branch = "ehal1" }
-embedded-graphics = "0.8.1"
-heapless = "0.8.0"
-pio-proc = "0.2.2"
-pio = "0.2.1"
-smart-leds = "0.4.0"
-paste = "1.0.14"
-bitflags = "2.5.0"
-postcard = "1.0.8"
-serde = { version = "1.0.202", default-features = false, features = ["derive"] }
-display-interface = "0.5.0"
-
-[features]
-default = ["rp2040"]
-rp2040 = []
-force-master = []
-force-slave = []
-
-[profile.release]
-lto = true
-panic = "abort"
+once_cell = { version = "1.20.2", default-features = false, features = [
+  "atomic-polyfill",
+] }

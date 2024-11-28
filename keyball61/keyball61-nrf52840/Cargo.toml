@@ -1,0 +1,34 @@
+cargo-features = ["per-package-target"]
+
+[package]
+name = "keyball61-nrf52840"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+forced-target = "thumbv7em-none-eabihf"
+
+[dependencies]
+keyball-common = { workspace = true }
+
+rktk = { workspace = true }
+rktk-drivers-nrf = { workspace = true }
+
+embassy-executor = { workspace = true }
+embassy-sync = { workspace = true }
+embassy-time = { workspace = true }
+
+embassy-nrf = { workspace = true }
+nrf-softdevice = { workspace = true }
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+
+ssd1306 = { workspace = true }
+
+once_cell = { workspace = true }
+
+[features]
+usb = []
+ble = ["rktk-drivers-nrf/ble"]
+default = ["ble", "usb"]

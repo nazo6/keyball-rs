@@ -1,0 +1,31 @@
+cargo-features = ["per-package-target"]
+
+[package]
+name = "keyball61-rp2040"
+version.workspace = true
+license.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+forced-target = "thumbv6m-none-eabi"
+
+[dependencies]
+keyball-common = { workspace = true }
+
+rktk = { workspace = true }
+rktk-drivers-rp = { workspace = true }
+
+embassy-executor = { workspace = true }
+embassy-sync = { workspace = true }
+embassy-time = { workspace = true }
+
+embassy-rp = { workspace = true }
+cortex-m = { workspace = true }
+cortex-m-rt = { workspace = true }
+portable-atomic = { version = "1.6.0", features = [
+  "unsafe-assume-single-core",
+] }
+
+ssd1306 = { workspace = true }
+
+once_cell = { workspace = true }

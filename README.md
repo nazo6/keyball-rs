@@ -1,96 +1,57 @@
-> [!IMPORTANT]
->
-> リポジトリを移動しました。
->
-> https://github.com/nazo6/rktk/tree/master/keyboards/keyball61-rp2040
+# keyball-rs
 
-# keyball-embassy-rp2040
+拙作の[rktk](https://github.com/nazo6/rktk)という自作キーボードファムウェア用フレームワークを用いたRust製のKeyball用のファームウェアです。現在Keyball61のみをサポートしています。
 
-ProMicro RP2040用のRust(+Embassy)製Keyballファームウェアです。
+動作のためにはRP2040を搭載したProMicroが必要です。通常のAVR
+ProMicroでは動かないので注意してください。
 
-紹介記事:
-[RustとEmbassyでKeyballのファームウェアを作った](https://zenn.dev/nazo6/articles/keyball-embassy-rp2040)
+また、BLEに対応しておりnRF52840を搭載ボードでも動作します。BLE Micro
+Proでの動作を確かめられていませんが、ピンの設定を適切に変更すれば動作するはずです。
 
-## ステータス
+## 機能
 
-基本的なキースキャン機能とレイヤ機能を実装しています。`keyboard/keymap.rs`を編集することでキーマップを変更できます。
+詳しくは[rktkのページ](https://github.com/nazo6/rktk)を参照してください。キーマップについてはQMKの機能のメジャーな所は大体実装してありますが、ディスプレイ、バックライトなどは現状カスタマイズすることができません。
 
 ## 既知の不具合
 
-- 左右間の通信が不安定なことがある
-- メディアキーが効かない
+- 左右間の通信が安定しない
+- フラッシュの書き込み・読み込みがうまくいかないことがある
 
 ## ビルド
 
-1. `elf2uf2-rs`をインストール
+### 依存
 
-```
-cargo install elf2uf2-rs
-```
+ビルドには以下のツールが必要です。予めインストールしておいてください。
 
-2. BOOTSELボタンを押しながらProMicro RP2040をUSBに接続
-3. `src/config.example.rs`を`src/config.rs`にコピー
-4. `src/keyboard/keymap.example.rs`を`src/keyboard/keymap.rs`にコピー
-5. 実行
+- Nightly Rust: Rustupからインストール可能
+- [flip-link](https://github.com/knurling-rs/flip-link):
+  `cargo install flip-link`
+- [rktk-cli](https://github.com/nazo6/rktk):
+  `cargo +nightly install --git https://github.com/nazo6/rktk rktk-cli`
+- arm-none-eabi-objcopy (uf2生成に必要)
+- Python (uf2生成に必要)
 
-```
-cargo run --release
-```
+### 手順
 
-> [!TIP]
-> このファームにはダブルリセットでBOOTSELに入る機能が内蔵されているため、以降はBOOTSELボタンを押しながら差す必要はありません。
+1. このリポジトリをクローンします。
+   ```bash
+   git clone https://github.com/nazo6/keyball-rs
+   ```
+2. ビルドするディレクトリに移動してビルドします。`cargo build -p`は機能しないので注意してください。
+   ```bash
+   cd keyball-rs/keyball61/keyball61-rp2040
+   rktk-cli build
+   ```
+3. ビルドが完了すると`target/thumbv6m-none-eabi/min-size`にuf2ファイルが生成されているはずです。ProMicroをブートローダーモードで起動(BOOTを押しながらリセット)し、表れたドライブにuf2ファイルをコピーすれば書き込み完了です。
 
-> [!NOTE]
-> 通常のProMicroのようにハードウェアでダブルリセットを検知しているわけではないので、ダブルタップが早すぎると検知されません。
+## カスタマイズ
 
-## 進行状況
+### キーマップ
 
-### 基本機能
+キーマップは[keymap.rs](./keyball-common/src/keymap.rs)で定義されています。これを編集することでキーマップを変更することができます。
 
-- [x] 基本的なキースキャンとUSB HIDへの出力
-- [x] PMW3360によるマウス入力とUSB HIDへの出力
-- [x] 分割キーボード間通信(partial)
-  - [x] 半二重通信によるバイト列の送受信
-  - [x] postcardによるバイト列のシリアライズ/デシリアライズ
-  - [x] master側でのデータの受信と処理
-- [ ] OLEDディスプレイ
-  - [x] 文字表示
-  - [x] ステータス表示
-  - [ ] 画像表示
-  - [ ] せっかく容量があるのでアニメーションとか表示したい
-- [ ] LED(ws2812)
-  - [x] とりあえずなんか光る
-  - [ ] きれいに光らせる
+### Remapper
 
-### やらなければならないこと
+rktkは上のようにソースコードでキーを変更する以外にも、以下のWebアプリを使うことでキーマップや設定を変更することができます。
 
-- [x] master/slave判定をちゃんとする(今はマウスあるかどうかで判定している)
-- [x] PMW3360のSPI通信の安定化(なぜか認識されないことが多々ある)
-- [ ] sendの失敗検知と再送信
-- [x] OLED未接続時にpanicしないようにする
-- [ ] master側がまあまあ熱くなるのを直す
-
-### やりたいこと
-
-- [ ] 高度なキーマップ機構(レイヤなど)
-- [x] 左トラックボール対応
-
-### 将来の展望
-
-- [ ] Keyball61以外の対応
-- [ ] Vial対応
-- [ ] BLE Micro Pro対応(NRF52なのでできないことはなさそう？)
-
-## CREDITS
-
-これらの先人がいなければここまで作れませんでした。
-
-- もろもろ参考
-  - [keyball-rs](https://github.com/hikalium/keyball-rs)
-- ダブルリセットでBOOTSEL
-  - https://github.com/Univa/rumcake/blob/2fa47dce9ab2b2406dd5465ccc9ce7b23e5ffdb0/rumcake/src/hw/mod.rs
-- PMW3360ドライバ関連
-  - https://github.com/kndndrj/mouse/tree/8c3cf4707cc392c16c91dc11e53f954f0fd820f1/firmware-rust/mouse-libs/src/pmw3360
-- 分割キーボード間半二重通信
-  - [QMK Firmware](https://github.com/qmk/qmk_firmware/blob/master/platforms/chibios/drivers/vendor/RP/RP2040/serial_vendor.c)
-  - [rusty-dilemma](https://github.com/simmsb/rusty-dilemma/blob/5ffe8f5d2b6b0d534a4309edc737364cd96f44f1/firmware/src/interboard/onewire.rs)
+https://rrpc.nazo6.dev/
