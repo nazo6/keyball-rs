@@ -1,4 +1,4 @@
-# keyball-rs
+# rktk-keyball-rs
 
 拙作の[rktk](https://github.com/nazo6/rktk)というフレームワークを用いたRust製のKeyballファームウェアです。現在Keyball61のみをサポートしています。
 
@@ -67,5 +67,5 @@ https://rrpc.nazo6.dev/
 
 ## 昔のコード
 
-[Zennの記事](https://zenn.dev/nazo6/articles/keyball-embassy-rp2040)で紹介した際のコードは[`legacy`ブランチ](https://github.com/nazo6/keyball-rs/tree/legacy)にあります。
+[Zennの記事](https://zenn.dev/nazo6/articles/keyball-embassy-rp2040)で紹介した際の`keyball-rs`のコードは[`legacy`ブランチ](https://github.com/nazo6/keyball-rs/tree/legacy)にあります。
 このコードをライブラリ化したものがrktkです。
