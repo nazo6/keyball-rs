@@ -16,7 +16,6 @@ use rktk::{drivers::Drivers, hooks::create_empty_hooks, none_driver};
 use rktk_drivers_rp::{
     backlight::ws2812_pio::Ws2812Pio,
     display::ssd1306::create_ssd1306,
-    double_tap::DoubleTapResetRp,
     keyscan::duplex_matrix::create_duplex_matrix,
     mouse::paw3395,
     panic_utils,
@@ -38,8 +37,6 @@ async fn main(_spawner: Spawner) {
     let mut cfg = embassy_rp::config::Config::default();
     cfg.clocks.sys_clk.div_int = 2;
     let p = embassy_rp::init(cfg);
-
-    let dtr = DoubleTapResetRp;
 
     let display = create_ssd1306(
         p.I2C1,
@@ -107,7 +104,7 @@ async fn main(_spawner: Spawner) {
 
     let drivers = Drivers {
         keyscan,
-        double_tap_reset: Some(dtr),
+        system: rktk_drivers_rp::system::RpSystemDriver,
         mouse_builder: Some(ball),
         usb_builder: Some(usb),
         display_builder: Some(display),

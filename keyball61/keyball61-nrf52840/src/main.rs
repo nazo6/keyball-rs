@@ -22,7 +22,8 @@ use rktk::{
 use rktk_drivers_nrf::{
     backlight::ws2812_pwm::Ws2812Pwm, display::ssd1306::create_ssd1306,
     keyscan::duplex_matrix::create_duplex_matrix, mouse::pmw3360, panic_utils,
-    softdevice::flash::get_flash, split::uart_half_duplex::UartHalfDuplexSplitDriver, usb::UsbOpts,
+    softdevice::flash::get_flash, split::uart_half_duplex::UartHalfDuplexSplitDriver,
+    system::NrfSystemDriver, usb::UsbOpts,
 };
 
 use keyball_common::*;
@@ -167,7 +168,7 @@ async fn main(_spawner: Spawner) {
 
     let drivers = Drivers {
         keyscan,
-        double_tap_reset: none_driver!(DoubleTapReset),
+        system: NrfSystemDriver,
         mouse_builder: Some(ball),
         usb_builder: {
             #[cfg(feature = "usb")]
