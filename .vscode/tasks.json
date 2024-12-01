@@ -15,11 +15,6 @@
       "label": "deploy keyball61 nrf52840 (2.ble)",
       "type": "shell",
       "command": "rktk-cli build keyball61/keyball61-nrf52840 -d /mnt/e -- --no-default-features --features ble"
-    },
-    {
-      "label": "check all",
-      "type": "shell",
-      "command": "cargo rktk internal check all"
     }
   ]
 }
