@@ -12,13 +12,7 @@ use embassy_rp::{
 };
 
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
-use rktk::{
-    hooks::create_empty_hooks,
-    interface::{
-        ble::DummyBleDriverBuilder, debounce::NoopDebounceDriver, encoder::DummyEncoderDriver,
-    },
-    task::Drivers,
-};
+use rktk::{drivers::Drivers, hooks::create_empty_hooks, none_driver};
 use rktk_drivers_rp::{
     backlight::ws2812_pio::Ws2812Pio,
     display::ssd1306::create_ssd1306,
@@ -117,12 +111,12 @@ async fn main(_spawner: Spawner) {
         mouse_builder: Some(ball),
         usb_builder: Some(usb),
         display_builder: Some(display),
-        split,
+        split: Some(split),
         backlight: Some(backlight),
-        ble_builder: Option::<DummyBleDriverBuilder>::None,
+        ble_builder: none_driver!(BleBuilder),
         storage: Some(storage),
-        debounce: NoopDebounceDriver,
-        encoder: Option::<DummyEncoderDriver>::None,
+        debounce: none_driver!(Debounce),
+        encoder: none_driver!(Encoder),
     };
 
     rktk::task::start(drivers, keymap::KEY_CONFIG, create_empty_hooks()).await;

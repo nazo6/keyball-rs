@@ -15,12 +15,9 @@ use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use once_cell::sync::OnceCell;
 
 use rktk::{
+    drivers::{interface::debounce::EagerDebounceDriver, Drivers},
     hooks::create_empty_hooks,
-    interface::{
-        debounce::EagerDebounceDriver, double_tap::DummyDoubleTapResetDriver,
-        encoder::DummyEncoderDriver,
-    },
-    task::Drivers,
+    none_driver,
 };
 use rktk_drivers_nrf::{
     backlight::ws2812_pwm::Ws2812Pwm, display::ssd1306::create_ssd1306,
@@ -38,19 +35,9 @@ mod ble {
     pub use rktk_drivers_nrf::softdevice::ble::NrfBleDriverBuilder;
 }
 
-#[cfg(not(feature = "ble"))]
-mod no_ble {
-    pub use rktk::interface::ble::DummyBleDriverBuilder;
-}
-
 #[cfg(feature = "usb")]
 mod usb {
     pub use rktk_drivers_nrf::usb::new_usb;
-}
-
-#[cfg(not(feature = "usb"))]
-mod no_usb {
-    pub use rktk::interface::usb::DummyUsbDriverBuilder;
 }
 
 use embassy_nrf::{bind_interrupts, peripherals::USBD};
@@ -173,14 +160,14 @@ async fn main(_spawner: Spawner) {
         let ble = Some(ble::NrfBleDriverBuilder::new(sd, server, "keyball61", flash).await);
 
         #[cfg(not(feature = "ble"))]
-        let ble = Option::<no_ble::DummyBleDriverBuilder>::None;
+        let ble = none_driver!(BleBuilder);
 
         ble
     };
 
     let drivers = Drivers {
         keyscan,
-        double_tap_reset: Option::<DummyDoubleTapResetDriver>::None,
+        double_tap_reset: none_driver!(DoubleTapReset),
         mouse_builder: Some(ball),
         usb_builder: {
             #[cfg(feature = "usb")]
@@ -197,18 +184,19 @@ async fn main(_spawner: Spawner) {
             };
 
             #[cfg(not(feature = "usb"))]
-            let usb = Option::<no_usb::DummyUsbDriverBuilder>::None;
+            let usb = none_driver!(UsbBuilder);
 
             usb
         },
         display_builder: Some(display),
-        split,
+        split: Some(split),
         backlight: Some(backlight),
         storage: Some(storage),
         ble_builder,
-        // debounce: rktk::interface::debounce::NoopDebounceDriver,
-        debounce: EagerDebounceDriver::new(embassy_time::Duration::from_millis(20)),
-        encoder: Option::<DummyEncoderDriver>::None,
+        debounce: Some(EagerDebounceDriver::new(
+            embassy_time::Duration::from_millis(20),
+        )),
+        encoder: none_driver!(Encoder),
     };
 
     rktk::task::start(drivers, keymap::KEY_CONFIG, create_empty_hooks()).await;

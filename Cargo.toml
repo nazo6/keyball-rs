@@ -4,7 +4,7 @@ cargo-features = ["profile-rustflags"]
 members = [
   "keyball-common",
   "keyball61/keyball61-nrf52840",
-  "keyball61/keyball61-rp2040",
+  "keyball61/keyball61-rp2040", "ra-check",
 ]
 resolver = "2"
 
