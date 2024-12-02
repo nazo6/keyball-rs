@@ -14,16 +14,12 @@ use embassy_nrf::{
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use once_cell::sync::OnceCell;
 
-use rktk::{
-    drivers::{interface::debounce::EagerDebounceDriver, Drivers},
-    hooks::create_empty_hooks,
-    none_driver,
-};
+use rktk::{drivers::Drivers, hooks::create_empty_hooks, none_driver};
+use rktk_drivers_common::{debounce::EagerDebounceDriver, panic_utils};
 use rktk_drivers_nrf::{
-    backlight::ws2812_pwm::Ws2812Pwm, display::ssd1306::create_ssd1306,
-    keyscan::duplex_matrix::create_duplex_matrix, mouse::pmw3360, panic_utils,
-    softdevice::flash::get_flash, split::uart_half_duplex::UartHalfDuplexSplitDriver,
-    system::NrfSystemDriver, usb::UsbOpts,
+    display::ssd1306::create_ssd1306, keyscan::duplex_matrix::create_duplex_matrix, mouse::pmw3360,
+    rgb::ws2812_pwm::Ws2812Pwm, softdevice::flash::get_flash,
+    split::uart_half_duplex::UartHalfDuplexSplitDriver, system::NrfSystemDriver, usb::UsbOpts,
 };
 
 use keyball_common::*;
@@ -131,7 +127,7 @@ async fn main(_spawner: Spawner) {
         p.PPI_GROUP0.degrade(),
     );
 
-    let backlight = Ws2812Pwm::new(p.PWM0, p.P0_06);
+    let rgb = Ws2812Pwm::new(p.PWM0, p.P0_06);
 
     let sd = rktk_drivers_nrf::softdevice::init_sd("keyball61");
 
@@ -191,7 +187,7 @@ async fn main(_spawner: Spawner) {
         },
         display_builder: Some(display),
         split: Some(split),
-        backlight: Some(backlight),
+        rgb: Some(rgb),
         storage: Some(storage),
         ble_builder,
         debounce: Some(EagerDebounceDriver::new(

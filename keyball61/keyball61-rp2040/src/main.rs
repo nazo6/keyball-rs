@@ -13,12 +13,12 @@ use embassy_rp::{
 
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use rktk::{drivers::Drivers, hooks::create_empty_hooks, none_driver};
+use rktk_drivers_common::panic_utils;
 use rktk_drivers_rp::{
-    backlight::ws2812_pio::Ws2812Pio,
     display::ssd1306::create_ssd1306,
     keyscan::duplex_matrix::create_duplex_matrix,
     mouse::paw3395,
-    panic_utils,
+    rgb::ws2812_pio::Ws2812Pio,
     split::pio_half_duplex::PioHalfDuplexSplitDriver,
     usb::{new_usb, UsbOpts},
 };
@@ -95,7 +95,7 @@ async fn main(_spawner: Spawner) {
     let split = PioHalfDuplexSplitDriver::new(pio, p.PIN_1);
 
     let pio = Pio::new(p.PIO1, Irqs);
-    let backlight = Ws2812Pio::new(pio, p.PIN_0, p.DMA_CH2);
+    let rgb = Ws2812Pio::new(pio, p.PIN_0, p.DMA_CH2);
 
     // NOTE: needed for some macro thing. maybe this can be avoided.
     #[allow(clippy::needless_late_init)]
@@ -109,7 +109,7 @@ async fn main(_spawner: Spawner) {
         usb_builder: Some(usb),
         display_builder: Some(display),
         split: Some(split),
-        backlight: Some(backlight),
+        rgb: Some(rgb),
         ble_builder: none_driver!(BleBuilder),
         storage: Some(storage),
         debounce: none_driver!(Debounce),
