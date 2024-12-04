@@ -4,7 +4,8 @@ cargo-features = ["profile-rustflags"]
 members = [
   "keyball-common",
   "keyball61/keyball61-nrf52840",
-  "keyball61/keyball61-rp2040", "ra-check",
+  "keyball61/keyball61-rp2040",
+  "ra-check",
 ]
 resolver = "2"
 
@@ -35,6 +36,7 @@ embassy-executor = { version = "0.6.1", features = [
 embassy-time = { version = "0.3.2" }
 embassy-sync = { version = "0.6.0" }
 embedded-alloc = "0.6.0"
+embassy-embedded-hal = { version = "0.2.0" }
 
 embassy-rp = { version = "0.2.0", features = [
   "unstable-pac",

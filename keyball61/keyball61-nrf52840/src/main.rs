@@ -3,23 +3,31 @@
 
 use core::panic::PanicInfo;
 
+use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_nrf::{
-    gpio::{Flex, Pin},
+    gpio::{Output, Pin},
     interrupt::{self, InterruptExt, Priority},
     peripherals::SPI2,
     ppi::Group,
+    spim::Spim,
+    twim::Twim,
     usb::vbus_detect::SoftwareVbusDetect,
 };
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use once_cell::sync::OnceCell;
 
 use rktk::{drivers::Drivers, hooks::create_empty_hooks, none_driver};
-use rktk_drivers_common::{debounce::EagerDebounceDriver, panic_utils};
+use rktk_drivers_common::{
+    debounce::EagerDebounceDriver,
+    display::ssd1306::Ssd1306DisplayBuilder,
+    keyscan::{duplex_matrix::DuplexMatrixScanner, HandDetector},
+    mouse::pmw3360::Pmw3360Builder,
+    panic_utils,
+};
 use rktk_drivers_nrf::{
-    display::ssd1306::create_ssd1306, keyscan::duplex_matrix::create_duplex_matrix, mouse::pmw3360,
-    rgb::ws2812_pwm::Ws2812Pwm, softdevice::flash::get_flash,
-    split::uart_half_duplex::UartHalfDuplexSplitDriver, system::NrfSystemDriver, usb::UsbOpts,
+    keyscan::flex_pin::NrfFlexPin, rgb::ws2812_pwm::Ws2812Pwm, softdevice::flash::get_flash,
+    split::uart_half_duplex::UartHalfDuplexSplitDriver, system::NrfSystemDriver,
 };
 
 use keyball_common::*;
@@ -34,7 +42,8 @@ mod ble {
 
 #[cfg(feature = "usb")]
 mod usb {
-    pub use rktk_drivers_nrf::usb::new_usb;
+    pub use rktk_drivers_common::usb::CommonUsbDriverBuilder;
+    pub use rktk_drivers_common::usb::UsbOpts;
 }
 
 use embassy_nrf::{bind_interrupts, peripherals::USBD};
@@ -50,23 +59,6 @@ static SOFTWARE_VBUS: OnceCell<SoftwareVbusDetect> = OnceCell::new();
 
 #[embassy_executor::main]
 async fn main(_spawner: Spawner) {
-    // - About limitation of softdevice
-    // By enabling softdevice, some interrupt priority level (P0,P1,P4)
-    // and peripherals are reserved by softdevice, and using them causes panic.
-    //
-    // Example reserved peripherals are:
-    // - TIMER0
-    // - CLOCK
-    // - RTC0
-    // ... and more
-    //
-    // ref:
-    // List of reserved peripherals: https://docs.nordicsemi.com/bundle/sds_s140/page/SDS/s1xx/sd_resource_reqs/hw_block_interrupt_vector.html
-    // Peripheral register addresses: https://docs.nordicsemi.com/bundle/ps_nrf52840/page/memory.html
-    //
-    // When panic occurs by peripheral conflict, PC address that caused panic is logged.
-    // By investigating the address using decompiler tools like ghidra, you can find the peripheral that caused the panic.
-
     let mut config = embassy_nrf::config::Config::default();
     config.gpiote_interrupt_priority = Priority::P2;
     config.time_interrupt_priority = Priority::P2;
@@ -77,11 +69,14 @@ async fn main(_spawner: Spawner) {
     interrupt::SPIM0_SPIS0_TWIM0_TWIS0_SPI0_TWI0.set_priority(Priority::P2);
     interrupt::UARTE1.set_priority(Priority::P2);
 
-    let display = create_ssd1306(
-        p.TWISPI0,
-        Irqs,
-        p.P0_17,
-        p.P0_20,
+    let display = Ssd1306DisplayBuilder::new(
+        Twim::new(
+            p.TWISPI0,
+            Irqs,
+            p.P0_17,
+            p.P0_20,
+            rktk_drivers_nrf::display::ssd1306::recommended_i2c_config(),
+        ),
         ssd1306::size::DisplaySize128x32,
     );
 
@@ -89,31 +84,40 @@ async fn main(_spawner: Spawner) {
         cortex_m::asm::udf()
     };
 
-    let ball_spi = Mutex::<NoopRawMutex, _>::new(embassy_nrf::spim::Spim::new(
+    let spi = Mutex::<NoopRawMutex, _>::new(Spim::new(
         p.SPI2,
         Irqs,
         p.P1_13,
         p.P1_11,
         p.P0_10,
-        pmw3360::recommended_pmw3360_config(),
+        rktk_drivers_nrf::mouse::pmw3360::recommended_spi_config(),
     ));
-    let ball = pmw3360::create_pmw3360(&ball_spi, p.P0_09);
+    let ball_spi_device = SpiDevice::new(
+        &spi,
+        Output::new(
+            p.P0_06,
+            embassy_nrf::gpio::Level::High,
+            embassy_nrf::gpio::OutputDrive::Standard,
+        ),
+    );
+    let ball = Pmw3360Builder::new(ball_spi_device);
 
-    let keyscan = create_duplex_matrix::<'_, 5, 4, 5, 7>(
+    let keyscan = DuplexMatrixScanner::<_, 5, 4, 5, 7>::new(
         [
-            Flex::new(p.P0_22), // ROW0
-            Flex::new(p.P0_24), // ROW1
-            Flex::new(p.P1_00), // ROW2
-            Flex::new(p.P0_11), // ROW3
-            Flex::new(p.P1_04), // ROW4
+            NrfFlexPin::new(p.P0_22), // ROW0
+            NrfFlexPin::new(p.P0_24), // ROW1
+            NrfFlexPin::new(p.P1_00), // ROW2
+            NrfFlexPin::new(p.P0_11), // ROW3
+            NrfFlexPin::new(p.P1_04), // ROW4
         ],
         [
-            Flex::new(p.P0_31), // COL0
-            Flex::new(p.P0_29), // COL1
-            Flex::new(p.P0_02), // COL2
-            Flex::new(p.P1_15), // COL3
+            NrfFlexPin::new(p.P0_31), // COL0
+            NrfFlexPin::new(p.P0_29), // COL1
+            NrfFlexPin::new(p.P0_02), // COL2
+            NrfFlexPin::new(p.P1_15), // COL3
         ],
-        (2, 6),
+        HandDetector::ByKey(2, 6),
+        false,
         translate_key_position,
     );
 
@@ -127,7 +131,7 @@ async fn main(_spawner: Spawner) {
         p.PPI_GROUP0.degrade(),
     );
 
-    let rgb = Ws2812Pwm::new(p.PWM0, p.P0_06);
+    let rgb = Ws2812Pwm::new(p.PWM0, p.P0_09);
 
     let sd = rktk_drivers_nrf::softdevice::init_sd("keyball61");
 
@@ -171,13 +175,13 @@ async fn main(_spawner: Spawner) {
             let usb = {
                 let vbus = SOFTWARE_VBUS.get_or_init(|| SoftwareVbusDetect::new(true, true));
                 let driver = embassy_nrf::usb::Driver::new(p.USBD, Irqs, vbus);
-                let opts = UsbOpts {
+                let opts = usb::UsbOpts {
                     config: USB_CONFIG,
                     mouse_poll_interval: 2,
                     kb_poll_interval: 5,
                     driver,
                 };
-                Some(usb::new_usb(opts))
+                Some(usb::CommonUsbDriverBuilder::new(opts))
             };
 
             #[cfg(not(feature = "usb"))]

@@ -3,24 +3,28 @@
 
 use core::panic::PanicInfo;
 
+use embassy_embedded_hal::shared_bus::asynch::spi::SpiDevice;
 use embassy_executor::Spawner;
 use embassy_rp::{
     bind_interrupts,
-    gpio::Flex,
+    gpio::Output,
+    i2c::I2c,
     peripherals::{I2C1, PIO0, PIO1, USB},
     pio::Pio,
 };
 
 use embassy_sync::{blocking_mutex::raw::NoopRawMutex, mutex::Mutex};
 use rktk::{drivers::Drivers, hooks::create_empty_hooks, none_driver};
-use rktk_drivers_common::panic_utils;
+use rktk_drivers_common::{
+    display::ssd1306::Ssd1306DisplayBuilder,
+    keyscan::{duplex_matrix::DuplexMatrixScanner, HandDetector},
+    mouse::paw3395::Paw3395Builder,
+    panic_utils,
+    usb::{CommonUsbDriverBuilder, UsbOpts},
+};
 use rktk_drivers_rp::{
-    display::ssd1306::create_ssd1306,
-    keyscan::duplex_matrix::create_duplex_matrix,
-    mouse::paw3395,
-    rgb::ws2812_pio::Ws2812Pio,
+    keyscan::flex_pin::RpFlexPin, mouse::paw3395, rgb::ws2812_pio::Ws2812Pio,
     split::pio_half_duplex::PioHalfDuplexSplitDriver,
-    usb::{new_usb, UsbOpts},
 };
 
 use keyball_common::*;
@@ -38,11 +42,14 @@ async fn main(_spawner: Spawner) {
     cfg.clocks.sys_clk.div_int = 2;
     let p = embassy_rp::init(cfg);
 
-    let display = create_ssd1306(
-        p.I2C1,
-        Irqs,
-        p.PIN_2,
-        p.PIN_3,
+    let display = Ssd1306DisplayBuilder::new(
+        I2c::new_async(
+            p.I2C1,
+            p.PIN_3,
+            p.PIN_2,
+            Irqs,
+            rktk_drivers_rp::display::ssd1306::recommended_i2c_config(),
+        ),
         ssd1306::size::DisplaySize128x32,
     );
 
@@ -50,7 +57,7 @@ async fn main(_spawner: Spawner) {
         cortex_m::asm::udf()
     };
 
-    let ball_spi = Mutex::<NoopRawMutex, _>::new(embassy_rp::spi::Spi::new(
+    let spi = Mutex::<NoopRawMutex, _>::new(embassy_rp::spi::Spi::new(
         p.SPI0,
         p.PIN_22,
         p.PIN_23,
@@ -59,23 +66,25 @@ async fn main(_spawner: Spawner) {
         p.DMA_CH1,
         paw3395::recommended_spi_config(),
     ));
-    let ball = paw3395::create_paw3395(&ball_spi, p.PIN_21, PAW3395_CONFIG);
+    let ball_spi = SpiDevice::new(&spi, Output::new(p.PIN_21, embassy_rp::gpio::Level::High));
+    let ball = Paw3395Builder::new(ball_spi, PAW3395_CONFIG);
 
-    let keyscan = create_duplex_matrix::<'_, 5, 4, 5, 7>(
+    let keyscan = DuplexMatrixScanner::<_, 5, 4, 5, 7>::new(
         [
-            Flex::new(p.PIN_4),
-            Flex::new(p.PIN_5),
-            Flex::new(p.PIN_6),
-            Flex::new(p.PIN_7),
-            Flex::new(p.PIN_8),
+            RpFlexPin::new(p.PIN_4),
+            RpFlexPin::new(p.PIN_5),
+            RpFlexPin::new(p.PIN_6),
+            RpFlexPin::new(p.PIN_7),
+            RpFlexPin::new(p.PIN_8),
         ],
         [
-            Flex::new(p.PIN_29),
-            Flex::new(p.PIN_28),
-            Flex::new(p.PIN_27),
-            Flex::new(p.PIN_26),
+            RpFlexPin::new(p.PIN_29),
+            RpFlexPin::new(p.PIN_28),
+            RpFlexPin::new(p.PIN_27),
+            RpFlexPin::new(p.PIN_26),
         ],
-        (2, 6),
+        HandDetector::ByKey(2, 6),
+        true,
         translate_key_position,
     );
 
@@ -88,7 +97,7 @@ async fn main(_spawner: Spawner) {
             driver,
         };
 
-        new_usb(usb_opts)
+        CommonUsbDriverBuilder::new(usb_opts)
     };
 
     let pio = Pio::new(p.PIO0, Irqs);

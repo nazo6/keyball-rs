@@ -5,15 +5,15 @@ pub mod keymap;
 
 pub use keymap::KEY_CONFIG;
 
-use rktk_drivers_common::{keyscan::duplex_matrix::ScanDir, mouse::paw3395, usb};
+use rktk_drivers_common::{keyscan::duplex_matrix::ScanDir, mouse::paw3395, usb::UsbDriverConfig};
 
 pub const PAW3395_CONFIG: paw3395::config::Config = paw3395::config::Config {
     mode: paw3395::config::HP_MODE,
     lift_cutoff: paw3395::config::LiftCutoff::_2mm,
 };
 
-pub const USB_CONFIG: usb::Config = {
-    let mut config = usb::Config::new(0xc0de, 0xcafe);
+pub const USB_CONFIG: UsbDriverConfig = {
+    let mut config = UsbDriverConfig::new(0xc0de, 0xcafe);
 
     config.manufacturer = Some("Yowkees/nazo6");
     config.product = Some("keyball");

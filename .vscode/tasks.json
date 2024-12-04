@@ -15,6 +15,11 @@
       "label": "deploy keyball61 nrf52840 (2.ble)",
       "type": "shell",
       "command": "rktk-cli build keyball61/keyball61-nrf52840 -d /mnt/e -- --no-default-features --features ble"
+    },
+    {
+      "label": "check all",
+      "type": "shell",
+      "command": "cd keyball61/keyball61-nrf52840 && cargo clippy && cd ../keyball61-rp2040 && cargo clippy -p keyball61-rp2040"
     }
   ]
 }
