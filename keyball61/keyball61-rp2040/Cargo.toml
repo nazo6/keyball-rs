@@ -9,6 +9,9 @@ authors.workspace = true
 repository.workspace = true
 forced-target = "thumbv6m-none-eabi"
 
+[package.metadata.rktk-cli]
+mcu = "Rp2040"
+
 [dependencies]
 keyball-common = { workspace = true }
 
