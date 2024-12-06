@@ -172,7 +172,8 @@
   "config": {
     "rktk": {
       "scan_interval_keyboard": 1,
-      "scan_interval_mouse": 1
+      "scan_interval_mouse": 1,
+      "split_usb_timeout": 10000
     }
   }
 }
