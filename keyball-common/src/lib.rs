@@ -25,6 +25,11 @@ pub const USB_CONFIG: UsbDriverConfig = {
     config
 };
 
+// Left
+//    [COL2ROW] [ROW2COL]
+// COL 0 1 2    0 1 2 3
+//
+//     0 1 2    3 4 5 6
 pub fn translate_key_position(dir: ScanDir, row: usize, col: usize) -> Option<(usize, usize)> {
     match dir {
         ScanDir::Col2Row => {

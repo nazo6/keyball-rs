@@ -102,7 +102,7 @@ async fn main(_spawner: Spawner) {
     );
     let ball = Pmw3360Builder::new(ball_spi_device);
 
-    let keyscan = DuplexMatrixScanner::<_, 5, 4, 5, 7>::new(
+    let keyscan = DuplexMatrixScanner::<_, 5, 4, 7, 5>::new(
         [
             NrfFlexPin::new(p.P0_22), // ROW0
             NrfFlexPin::new(p.P0_24), // ROW1
@@ -116,7 +116,7 @@ async fn main(_spawner: Spawner) {
             NrfFlexPin::new(p.P0_02), // COL2
             NrfFlexPin::new(p.P1_15), // COL3
         ],
-        HandDetector::ByKey(2, 6),
+        HandDetector::Constant(rktk::drivers::interface::keyscan::Hand::Left),
         false,
         translate_key_position,
     );
