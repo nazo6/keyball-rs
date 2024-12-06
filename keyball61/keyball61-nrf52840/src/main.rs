@@ -200,7 +200,7 @@ async fn main(_spawner: Spawner) {
         encoder: none_driver!(Encoder),
     };
 
-    rktk::task::start(drivers, keymap::KEY_CONFIG, create_empty_hooks()).await;
+    rktk::task::start(drivers, keymap::KEYMAP, create_empty_hooks()).await;
 }
 
 #[panic_handler]

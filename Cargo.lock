@@ -1672,7 +1672,9 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
+ "smart-default",
  "smart-leds",
+ "ssmarshal",
  "usbd-hid",
 ]
 
@@ -1697,7 +1699,7 @@ dependencies = [
  "sequential-storage",
  "ssd1306",
  "static_cell",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "usbd-hid",
 ]
 
@@ -1728,7 +1730,7 @@ dependencies = [
  "ssd1306",
  "ssmarshal",
  "static_cell",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
  "usbd-hid",
 ]
 
@@ -1754,7 +1756,7 @@ dependencies = [
  "smart-leds",
  "ssd1306",
  "static_cell",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -1766,6 +1768,7 @@ dependencies = [
  "macro_rules_attribute",
  "paste",
  "postcard",
+ "schemars",
  "serde",
  "serde_with",
  "usbd-hid",
@@ -1784,7 +1787,7 @@ dependencies = [
  "rktk-keymanager",
  "serde",
  "serde_with",
- "thiserror 2.0.3",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -1975,6 +1978,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
+name = "smart-default"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0eb01866308440fc64d6c44d9e86c5cc17adfe33c4d6eed55da9145044d0ffc1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.90",
+]
+
+[[package]]
 name = "smart-leds"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2125,11 +2139,11 @@ dependencies = [
 
 [[package]]
 name = "thiserror"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+checksum = "2f49a1853cf82743e3b7950f77e0f4d622ca36cf4317cba00c767838bac8d490"
 dependencies = [
- "thiserror-impl 2.0.3",
+ "thiserror-impl 2.0.4",
 ]
 
 [[package]]
@@ -2145,9 +2159,9 @@ dependencies = [
 
 [[package]]
 name = "thiserror-impl"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
+checksum = "8381894bb3efe0c4acac3ded651301ceee58a15d47c2e34885ed1908ad667061"
 dependencies = [
  "proc-macro2",
  "quote",

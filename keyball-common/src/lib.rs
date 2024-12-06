@@ -3,7 +3,7 @@
 
 pub mod keymap;
 
-pub use keymap::KEY_CONFIG;
+pub use keymap::KEYMAP;
 
 use rktk_drivers_common::{keyscan::duplex_matrix::ScanDir, mouse::paw3395, usb::UsbDriverConfig};
 
