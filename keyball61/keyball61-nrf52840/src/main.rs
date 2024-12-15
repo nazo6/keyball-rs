@@ -168,7 +168,7 @@ async fn main(_spawner: Spawner) {
 
     let drivers = Drivers {
         keyscan,
-        system: NrfSystemDriver,
+        system: NrfSystemDriver::new(None),
         mouse_builder: Some(ball),
         usb_builder: {
             #[cfg(feature = "usb")]
